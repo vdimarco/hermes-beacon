@@ -117,10 +117,17 @@
       <h2 class="text-xl font-bold text-white">Scoreboard</h2>
       <p class="text-sm text-zinc-500 mt-1">Live trust scores from <code class="font-mono text-zinc-400">GET /v1/scores</code></p>
     </div>
-    <div id="scoreboardStatus" class="text-xs font-mono text-zinc-500"></div>
+    <div class="flex items-center gap-3">
+      <div id="scoreboardStatus" class="text-xs font-mono text-zinc-500"></div>
+      <div class="flex items-center rounded-lg border border-zinc-800 overflow-hidden text-xs font-mono">
+        <button id="viewCardsBtn" type="button" class="px-3 py-1.5 transition-colors" aria-pressed="true">cards</button>
+        <button id="viewListBtn" type="button" class="px-3 py-1.5 transition-colors border-l border-zinc-800" aria-pressed="false">list</button>
+      </div>
+    </div>
   </div>
 
   <div id="scoreCards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+  <div id="scoreList" class="hidden rounded-xl border border-zinc-800 divide-y divide-zinc-800 overflow-hidden"></div>
 </section>
 
 <!-- ============ SECTION 3: PROBE CONSOLE + ESCROW SIMULATOR ============ -->
@@ -401,6 +408,25 @@ function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
 
+function scoreListRowHTML(score, idx) {
+  const g = gradeColors[score.grade] || gradeColors.F;
+  const escrowRecommendation = score.escrow_recommendation || escrowRecommendationFor(score.trust_score);
+  const escrowClass = escrowBadgeColors[escrowRecommendation] || escrowBadgeColors.HOLD;
+  const rowId = `row-${idx}-${Math.random().toString(36).slice(2, 8)}`;
+
+  return `
+  <div class="flex items-center gap-3 sm:gap-4 px-4 py-2.5 bg-zinc-900/40 hover:bg-zinc-900/70 animate-fadein transition-colors" data-endpoint="${escapeHtml(score.endpoint)}" data-trust-score="${score.trust_score}" id="${rowId}">
+    <span class="shrink-0 w-7 h-7 rounded ${g.bg} ring-1 ${g.ring} flex items-center justify-center text-xs font-extrabold ${g.text}">${score.grade}</span>
+    <span class="font-mono text-sm text-zinc-300 truncate flex-1 min-w-0" title="${escapeHtml(score.endpoint)}">${escapeHtml(hostnameOf(score.endpoint))}</span>
+    ${score.scam_flag ? '<span class="hidden sm:inline-block shrink-0 text-[10px] font-mono uppercase tracking-wide text-red-400 bg-red-500/10 border border-red-500/30 rounded px-1.5 py-0.5">scam</span>' : ''}
+    <span class="shrink-0 font-mono text-sm text-white font-bold w-10 text-right">${score.trust_score}</span>
+    <span class="hidden sm:block shrink-0 font-mono text-[11px] text-zinc-500 w-16 text-right">${score.uptime_pct}%</span>
+    <span class="hidden md:block shrink-0 font-mono text-[11px] text-zinc-500 w-20 text-right">${score.latency_p99_ms}ms</span>
+    <span class="shrink-0 text-[10px] font-mono uppercase tracking-wide border rounded px-1.5 py-0.5 w-14 text-center ${escrowClass}">${escrowRecommendation}</span>
+    <button class="pay-btn shrink-0 inline-flex items-center gap-1.5 bg-zinc-800 hover:bg-amber hover:text-black text-zinc-200 text-xs font-semibold rounded-lg px-3 py-1.5 transition-colors">Pay $50</button>
+  </div>`;
+}
+
 function renderCards(container, scores) {
   container.innerHTML = scores.map((s, i) => scoreCardHTML(s, i)).join('');
   container.querySelectorAll('.pay-btn').forEach(btn => {
@@ -408,8 +434,54 @@ function renderCards(container, scores) {
   });
 }
 
+function renderList(container, scores) {
+  container.innerHTML = scores.map((s, i) => scoreListRowHTML(s, i)).join('');
+  container.querySelectorAll('.pay-btn').forEach(btn => {
+    btn.addEventListener('click', () => onPayClick(btn));
+  });
+}
+
+/* ---------------------------------------------------------------------- */
+/* Scoreboard view toggle (cards / compressed list)                       */
+/* ---------------------------------------------------------------------- */
+let currentScores = [];
+let scoreboardView = localStorage.getItem('beacon_scoreboard_view') === 'list' ? 'list' : 'cards';
+
+const cardsContainer = document.getElementById('scoreCards');
+const listContainer = document.getElementById('scoreList');
+const viewCardsBtn = document.getElementById('viewCardsBtn');
+const viewListBtn = document.getElementById('viewListBtn');
+
+function applyScoreboardView() {
+  const isList = scoreboardView === 'list';
+  cardsContainer.classList.toggle('hidden', isList);
+  listContainer.classList.toggle('hidden', !isList);
+
+  for (const [btn, active] of [[viewCardsBtn, !isList], [viewListBtn, isList]]) {
+    btn.setAttribute('aria-pressed', String(active));
+    btn.classList.toggle('bg-amber', active);
+    btn.classList.toggle('text-black', active);
+    btn.classList.toggle('text-zinc-400', !active);
+    btn.classList.toggle('hover:text-zinc-200', !active);
+  }
+
+  if (isList) {
+    renderList(listContainer, currentScores);
+  } else {
+    renderCards(cardsContainer, currentScores);
+  }
+}
+
+function setScoreboardView(view) {
+  scoreboardView = view;
+  localStorage.setItem('beacon_scoreboard_view', view);
+  applyScoreboardView();
+}
+
+viewCardsBtn.addEventListener('click', () => setScoreboardView('cards'));
+viewListBtn.addEventListener('click', () => setScoreboardView('list'));
+
 async function loadScoreboard() {
-  const container = document.getElementById('scoreCards');
   const status = document.getElementById('scoreboardStatus');
   status.textContent = 'fetching…';
   try {
@@ -417,11 +489,13 @@ async function loadScoreboard() {
     if (!res.ok) throw new Error('bad status');
     const data = await res.json();
     if (!Array.isArray(data) || data.length === 0) throw new Error('empty');
-    renderCards(container, data);
+    currentScores = data;
+    applyScoreboardView();
     status.textContent = `live · ${data.length} endpoints`;
     status.classList.add('text-green-400');
   } catch (e) {
-    renderCards(container, seed_scores);
+    currentScores = seed_scores;
+    applyScoreboardView();
     status.textContent = 'offline · showing seed data';
     status.classList.add('text-zinc-600');
   }
