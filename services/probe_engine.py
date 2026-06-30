@@ -79,6 +79,11 @@ def init_db():
         existing_cols = {row["name"] for row in conn.execute("PRAGMA table_info(scores)")}
         if "evaluator" not in existing_cols:
             conn.execute("ALTER TABLE scores ADD COLUMN evaluator TEXT")
+        if "synthetic" not in existing_cols:
+            # 1 for rows inserted directly by scripts/seed_data.py (no real
+            # probe was ever run against the endpoint), 0 for rows written
+            # by a live POST /v1/probe call below.
+            conn.execute("ALTER TABLE scores ADD COLUMN synthetic INTEGER DEFAULT 0")
 
 
 @app.on_event("startup")
@@ -311,8 +316,9 @@ def probe(req: ProbeRequest):
             INSERT INTO scores (
                 endpoint, endpoint_id, trust_score, grade, accuracy, uptime_pct,
                 latency_p99_ms, dispute_rate, scam_flag, sample_size, verified_by,
-                attested_at, attestation, spend_amount_cents, created_at, evaluator
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                attested_at, attestation, spend_amount_cents, created_at, evaluator,
+                synthetic
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 req.target_url,
@@ -331,6 +337,7 @@ def probe(req: ProbeRequest):
                 req.spend_amount_cents,
                 now,
                 evaluator,
+                0,
             ),
         )
 

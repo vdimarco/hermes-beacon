@@ -1,4 +1,9 @@
-"""Insert 3 synthetic scores into probes.db for local testing."""
+"""Insert 3 synthetic scores into probes.db for local testing.
+
+These endpoints (api.weather-ai.com etc.) are fictional -- they don't
+resolve to real services. Rows are marked synthetic=1 so the ledger API
+and demo UI can flag them as sample data rather than a real probe
+result."""
 import os
 import sqlite3
 import sys
@@ -67,8 +72,8 @@ def seed():
             INSERT INTO scores (
                 endpoint, endpoint_id, trust_score, grade, accuracy, uptime_pct,
                 latency_p99_ms, dispute_rate, scam_flag, sample_size, verified_by,
-                attested_at, attestation, spend_amount_cents, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                attested_at, attestation, spend_amount_cents, created_at, synthetic
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 row["endpoint"],
@@ -86,6 +91,7 @@ def seed():
                 attestation,
                 row["spend_amount_cents"],
                 now,
+                1,
             ),
         )
     conn.commit()
