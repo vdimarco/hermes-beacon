@@ -161,7 +161,7 @@ def execute_probe(target_url: str, payload: dict) -> tuple[Optional[Any], int, b
         return None, latency_ms, True, None
 
 
-NOUS_API_BASE = "https://inference-api.nousresearch.com/v1"
+NOUS_API_BASE = os.environ.get("NOUS_API_BASE", "https://inference-api.nousresearch.com/v1")
 NOUS_MODEL = "nvidia/nemotron-3-ultra-550b-a55b"
 # Nemotron 3 Ultra is a large reasoning model; it routinely takes well over
 # the 5s target-probe timeout to respond, so it gets its own budget.
@@ -183,10 +183,17 @@ def _extract_json_object(text: str) -> dict:
 
 
 def call_nemotron_real(task_description: str, payload: dict, response_body: Any, ground_truth: str) -> dict:
-    """Calls Nemotron via Nous Research's inference API. Requires NOUS_API_KEY env var."""
+    """Calls Nemotron via Nous Research's inference API. When NOUS_API_BASE
+    points at a local `hermes proxy` (the default), that proxy attaches the
+    real OAuth credential and any bearer token is accepted; NOUS_API_KEY is
+    only required when talking to the hosted Nous API directly."""
     api_key = os.environ.get("NOUS_API_KEY")
+    is_local_proxy = "127.0.0.1" in NOUS_API_BASE or "localhost" in NOUS_API_BASE
     if not api_key:
-        raise RuntimeError("NOUS_API_KEY not set")
+        if is_local_proxy:
+            api_key = "local-hermes-proxy"
+        else:
+            raise RuntimeError("NOUS_API_KEY not set")
 
     prompt = (
         f"You are a quality evaluator. An API claims it can do: {task_description}.\n"

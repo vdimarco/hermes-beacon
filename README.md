@@ -238,6 +238,14 @@ intentionally simulated for the hackathon:
   unless `NOUS_API_KEY` is set (`services/probe_engine.py`). When set,
   probes are scored live by NVIDIA's Nemotron 3 Ultra model via Nous
   Research's inference API.
+  - For local dev, point `probe_engine` at a locally running
+    [Hermes](https://github.com/NousResearch/hermes-agent) proxy instead
+    of calling `inference-api.nousresearch.com` directly: run
+    `hermes proxy start --provider nous` (default `127.0.0.1:8645`),
+    then start Beacon with `NOUS_API_BASE=http://127.0.0.1:8645/v1` and
+    any `NOUS_API_KEY` value — the proxy attaches your real OAuth
+    credential and forwards the request, so the bearer token Beacon
+    sends is never actually checked.
 - **Escrow/Stripe** creates and confirms a real Stripe `PaymentIntent`
   (manual capture, Stripe's `pm_card_visa` test-mode card) when
   `STRIPE_SECRET_KEY` is set, holding funds on PASS and capturing them
