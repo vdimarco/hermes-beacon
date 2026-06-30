@@ -48,15 +48,15 @@
 
 <!-- ============ NAV ============ -->
 <nav class="sticky top-0 z-40 backdrop-blur bg-bg/80 border-b border-zinc-800/80">
-  <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-3">
     <div class="flex items-center gap-2">
       <span class="w-2.5 h-2.5 rounded-full bg-amber animate-pulseGlow"></span>
-      <span class="font-mono font-bold tracking-tight text-lg text-white">beacon<span class="text-amber">.sh</span></span>
+      <span class="font-mono font-bold tracking-tight text-lg text-white">beacon</span>
     </div>
-    <div class="hidden sm:flex items-center gap-6 text-sm text-zinc-400 font-mono">
+    <div class="flex flex-wrap items-center gap-3 sm:gap-6 text-sm text-zinc-400 font-mono">
       <a href="#scoreboard" class="hover:text-amber transition-colors">scoreboard</a>
       <a href="#probe" class="hover:text-cyan transition-colors">probe console</a>
-      <span class="px-2 py-1 rounded border border-zinc-700 text-zinc-500 text-xs">EigenLayer AVS</span>
+      <span class="hidden sm:inline px-2 py-1 rounded border border-zinc-700 text-zinc-500 text-xs">EigenLayer AVS</span>
     </div>
   </div>
   <div class="max-w-6xl mx-auto px-6 pb-3 flex items-center gap-5" id="healthPanel">
@@ -186,7 +186,7 @@
 
 <footer class="border-t border-zinc-800/80 py-8">
   <div class="max-w-6xl mx-auto px-6 text-xs text-zinc-600 font-mono flex flex-wrap items-center justify-between gap-2">
-    <span>beacon.sh — trust infrastructure for the agentic web</span>
+    <span>beacon — trust infrastructure for the agentic web</span>
     <span>orchestrated_by: hermes · scored_by: nemotron-3-ultra · verified_by: beacon-avs-v2 · payments_by: stripe-skills</span>
   </div>
 </footer>
