@@ -148,7 +148,7 @@ BASE_URL=https://hermes-beacon.fly.dev python test_end_to_end.py
 ```
 
 Prints a green `PASS`/red `FAIL` per step and exits 0 only if everything
-passes — probe → score → escrow pass → escrow block → NemoClaw guardrail.
+passes — probe → score → escrow pass → escrow block → daily spend guardrail.
 
 ## 90-second demo script
 
@@ -163,7 +163,7 @@ passes — probe → score → escrow pass → escrow block → NemoClaw guardra
    the escrow modal shows **Payment Released**. Click **Pay $50** on the
    F-grade scam-flagged card — modal shows **Payment Blocked**, citing
    the trust score. This is the escrow gate calling the ledger live.
-4. **(0:55–1:15)** Mention the **NemoClaw guardrail**: probe spend is
+4. **(0:55–1:15)** Mention the **daily spend guardrail**: probe spend is
    capped at $10/day; once exhausted, `/v1/probe` returns 403 instead of
    silently overspending — show `python test_end_to_end.py` passing,
    including the guardrail test.
@@ -178,9 +178,15 @@ This is a real, persistent backend, not a toy — but a few pieces are
 intentionally simulated for the hackathon:
 
 - **Nemotron scoring** falls back to a deterministic mock evaluator
-  unless `NVIDIA_API_KEY` is set (`services/probe_engine.py`).
-- **Escrow/Stripe** is simulated bookkeeping (`escrow.db`), not real
-  payment movement.
+  unless `NOUS_API_KEY` is set (`services/probe_engine.py`). When set,
+  probes are scored live by NVIDIA's Nemotron 3 Ultra model via Nous
+  Research's inference API.
+- **Escrow/Stripe** creates and confirms a real Stripe `PaymentIntent`
+  (manual capture, Stripe's `pm_card_visa` test-mode card) when
+  `STRIPE_SECRET_KEY` is set, holding funds on PASS and capturing them
+  on `/v1/escrow/execute` — real Stripe API calls, just against test-mode
+  keys/cards, not live money. Falls back to bookkeeping-only in
+  `escrow.db` if the key isn't set (`services/escrow_gate.py`).
 - **No auth/rate limiting** on any endpoint — anyone with the URL can
   call `/v1/probe` or `/v1/escrow/validate`.
 

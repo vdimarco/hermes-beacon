@@ -111,7 +111,7 @@ def main():
 
     check("/v1/escrow/validate blocks low-score endpoint", low_ok and low_body.get("can_pay") is False, str(low_body)[:200])
 
-    # 6. Exhaust the daily budget and verify 403 (NemoClaw guardrail)
+    # 6. Exhaust the daily budget and verify 403 (daily spend guardrail)
     guardrail_triggered = False
     last_resp = None
     for i in range(15):
@@ -128,7 +128,7 @@ def main():
             break
 
     check(
-        "NemoClaw guardrail returns 403 when budget exceeded",
+        "Daily spend guardrail returns 403 when budget exceeded",
         guardrail_triggered,
         f"last_status={getattr(last_resp, 'status_code', None)}",
     )

@@ -271,7 +271,7 @@ def probe(req: ProbeRequest):
             return JSONResponse(
                 status_code=403,
                 content={
-                    "error": "NemoClaw guardrail: Daily probe budget exceeded",
+                    "error": "Daily probe budget guardrail: Daily probe budget exceeded",
                     "budget_limit_cents": DAILY_PROBE_BUDGET_CENTS,
                     "already_spent_cents": already_spent,
                     "remaining_cents": DAILY_PROBE_BUDGET_CENTS - already_spent,
