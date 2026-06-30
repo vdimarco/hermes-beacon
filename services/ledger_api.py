@@ -41,6 +41,7 @@ def escrow_recommendation(trust_score: int) -> str:
 
 
 def row_to_score(row: sqlite3.Row) -> dict:
+    columns = row.keys()
     return {
         "endpoint": row["endpoint"],
         "trust_score": row["trust_score"],
@@ -55,6 +56,7 @@ def row_to_score(row: sqlite3.Row) -> dict:
         "attested_at": row["attested_at"],
         "attestation": row["attestation"],
         "escrow_recommendation": escrow_recommendation(row["trust_score"]),
+        "evaluator": row["evaluator"] if "evaluator" in columns else None,
     }
 
 

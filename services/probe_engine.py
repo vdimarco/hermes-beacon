@@ -76,6 +76,9 @@ def init_db():
             )
             """
         )
+        existing_cols = {row["name"] for row in conn.execute("PRAGMA table_info(scores)")}
+        if "evaluator" not in existing_cols:
+            conn.execute("ALTER TABLE scores ADD COLUMN evaluator TEXT")
 
 
 @app.on_event("startup")
@@ -308,8 +311,8 @@ def probe(req: ProbeRequest):
             INSERT INTO scores (
                 endpoint, endpoint_id, trust_score, grade, accuracy, uptime_pct,
                 latency_p99_ms, dispute_rate, scam_flag, sample_size, verified_by,
-                attested_at, attestation, spend_amount_cents, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                attested_at, attestation, spend_amount_cents, created_at, evaluator
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 req.target_url,
@@ -327,6 +330,7 @@ def probe(req: ProbeRequest):
                 attestation,
                 req.spend_amount_cents,
                 now,
+                evaluator,
             ),
         )
 

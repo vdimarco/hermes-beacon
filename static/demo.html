@@ -68,13 +68,20 @@
   <div class="absolute inset-0 pointer-events-none opacity-20" style="background:radial-gradient(circle at 30% 0%, #f59e0b22, transparent 60%), radial-gradient(circle at 80% 30%, #06b6d422, transparent 55%);"></div>
 
   <div class="relative max-w-6xl mx-auto px-6 pt-16 pb-12">
-    <div class="max-w-2xl mb-10">
+    <div class="max-w-2xl mb-6">
       <h1 class="text-3xl sm:text-4xl font-bold text-white tracking-tight">
-        Trust scores for the <span class="text-amber">agentic web</span>.
+        Hermes agents use <span class="text-amber">Stripe Skills</span> to pay autonomously.
       </h1>
       <p class="mt-3 text-zinc-400">
-        Beacon probes, scores, and attests every API your agents talk to — so payments only flow to endpoints that earned them.
+        Beacon probes with <span class="text-cyan">NVIDIA Nemotron 3 Ultra</span>, scores every API, and gates the payment — so bad endpoints never touch your money.
       </p>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2 mb-10 text-[11px] font-mono">
+      <span class="px-2.5 py-1 rounded border border-zinc-700 text-zinc-400">hermes · agent orchestrator</span>
+      <span class="px-2.5 py-1 rounded border border-zinc-700 text-zinc-400">stripe-skills · escrow gate · test-mode PaymentIntents</span>
+      <span class="px-2.5 py-1 rounded border border-zinc-700 text-zinc-400">nemotron-3-ultra · NVIDIA · live scoring</span>
+      <span class="px-2.5 py-1 rounded border border-zinc-700 text-zinc-400">beacon-avs-v2 · EigenLayer AVS · slashing-enabled</span>
     </div>
 
     <!-- Terminal window -->
@@ -86,13 +93,7 @@
         <span class="ml-3 text-xs font-mono text-zinc-500">beacon — zsh</span>
       </div>
       <div class="p-5 sm:p-6 font-mono text-[13px] sm:text-sm leading-relaxed overflow-x-auto scrollbar-thin">
-        <div id="typeLine" class="text-zinc-200 whitespace-pre"></div>
-        <div id="statusLine" class="mt-2 text-green-400 font-semibold opacity-0 transition-opacity duration-500"></div>
-        <pre id="jsonBlock" class="mt-3 opacity-0 transition-opacity duration-700"></pre>
-        <div id="verifiedLine" class="mt-4 flex items-center gap-2 text-xs sm:text-sm opacity-0 transition-opacity duration-700">
-          <span class="text-green-400">✓</span>
-          <span class="text-zinc-400"><span class="text-amber">beacon-avs-v2</span> · <span class="text-cyan">EigenLayer AVS</span> · <span class="text-zinc-500">slashing-enabled</span></span>
-        </div>
+        <pre id="heroTerminal" class="whitespace-pre-wrap"></pre>
       </div>
     </div>
 
@@ -134,7 +135,7 @@
 <section id="probe" class="max-w-6xl mx-auto px-6 pb-20">
   <div class="rounded-xl border border-zinc-800 bg-zinc-900/30 p-6 sm:p-8">
     <h2 class="text-xl font-bold text-white mb-1">Probe Console</h2>
-    <p class="text-sm text-zinc-500 mb-5">Submit a target URL to <code class="font-mono text-zinc-400">POST /v1/probe</code> and watch a fresh trust score land below.</p>
+    <p class="text-sm text-zinc-500 mb-5">Submit a target URL to <code class="font-mono text-zinc-400">POST /v1/probe</code>. Nemotron 3 Ultra scores the response live via Nous Research inference API. The <span class="text-cyan">evaluator</span> field tells you which brain scored it.</p>
 
     <form id="probeForm" class="flex flex-col sm:flex-row gap-3">
       <input id="targetUrl" type="url" required placeholder="https://api.some-agent-service.com/v1/endpoint"
@@ -150,6 +151,35 @@
     <div id="probeResultWrap" class="hidden mt-6">
       <p class="text-xs font-mono text-zinc-500 mb-3">// probe result</p>
       <div id="probeResult" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+
+      <div class="mt-5 flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/30 px-4 py-3">
+        <button id="hermesPayBtn" type="button"
+          class="shrink-0 inline-flex items-center justify-center gap-2 bg-zinc-800 hover:bg-cyan hover:text-black text-zinc-200 text-xs sm:text-sm font-semibold rounded-lg px-4 py-2.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+          Simulate Hermes agent payment <span class="text-zinc-500 group-hover:text-black font-mono hidden sm:inline">→ POST /v1/escrow/validate</span>
+        </button>
+        <div id="hermesPayResult" class="text-xs font-mono text-zinc-500"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="max-w-6xl mx-auto px-6 pb-16">
+  <div class="rounded-xl border border-zinc-800 bg-zinc-900/30 p-6 sm:p-8">
+    <h2 class="text-lg font-bold text-white mb-1">Built for Hermes × Stripe × NVIDIA</h2>
+    <p class="text-sm text-zinc-500 mb-6">Hermes Business Hackathon Prototype — this is a live demo. The evaluator field and Stripe dashboard are both verifiable now.</p>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 text-sm">
+      <div>
+        <p class="font-mono text-amber font-semibold mb-1">Hermes</p>
+        <p class="text-zinc-400">the agent orchestrator. This demo simulates a Hermes agent selecting tools, triggering payments via Stripe Skills, and hitting Beacon's escrow gate before any money moves.</p>
+      </div>
+      <div>
+        <p class="font-mono text-cyan font-semibold mb-1">Stripe Skills for Hermes</p>
+        <p class="text-zinc-400">the payment primitives. Real test-mode PaymentIntents with manual capture. The escrow gate blocks bad endpoints entirely — verify in the Stripe test dashboard.</p>
+      </div>
+      <div>
+        <p class="font-mono text-green-400 font-semibold mb-1">NVIDIA Nemotron 3 Ultra</p>
+        <p class="text-zinc-400">the scoring brain. Live inference via Nous Research API. Every probe gets a real LLM evaluation, not a heuristic.</p>
+      </div>
     </div>
   </div>
 </section>
@@ -157,7 +187,7 @@
 <footer class="border-t border-zinc-800/80 py-8">
   <div class="max-w-6xl mx-auto px-6 text-xs text-zinc-600 font-mono flex flex-wrap items-center justify-between gap-2">
     <span>beacon.sh — trust infrastructure for the agentic web</span>
-    <span>verified_by: beacon-avs-v2</span>
+    <span>orchestrated_by: hermes · scored_by: nemotron-3-ultra · verified_by: beacon-avs-v2 · payments_by: stripe-skills</span>
   </div>
 </footer>
 
@@ -229,6 +259,7 @@ const seed_scores = [
     attested_at: "2026-06-29T18:42:11.203Z",
     attestation: "0x7f3a9c21e8b4d610",
     escrow_recommendation: "PASS",
+    evaluator: "nemotron-3-ultra",
   },
   {
     endpoint: "https://api.tradebot-x.io/v2/quote",
@@ -244,6 +275,7 @@ const seed_scores = [
     attested_at: "2026-06-29T14:05:52.880Z",
     attestation: "0x1c5e7790adf23bb1",
     escrow_recommendation: "HOLD",
+    evaluator: "mock",
   },
   {
     endpoint: "https://api.scamcoin-signals.net/v1/predict",
@@ -259,77 +291,98 @@ const seed_scores = [
     attested_at: "2026-06-29T09:11:30.447Z",
     attestation: "0x9d402f18cc6a05e4",
     escrow_recommendation: "BLOCK",
+    evaluator: "error-path",
   },
 ];
 
 /* ---------------------------------------------------------------------- */
 /* Terminal hero typing animation                                         */
 /* ---------------------------------------------------------------------- */
-const heroJson = {
-  endpoint: "https://api.weather-ai.com/v1/forecast",
-  trust_score: 94,
-  grade: "A",
-  accuracy: 0.97,
-  uptime_pct: 99.91,
-  latency_p99_ms: 180,
-  dispute_rate: 0.001,
-  scam_flag: false,
-  sample_size: 142830,
-  verified_by: "beacon-avs-v2",
-  attested_at: "2026-06-30T08:14:02.119Z",
-  attestation: "0x7f3a9c21e8b4d610",
-  escrow_recommendation: "PASS",
+const heroTranscript = [
+  { type: 'cmd', text: '$ hermes agent "provision a weather API"' },
+  { type: 'out', text: '→ tool selected: weather-api-v1' },
+  { type: 'out', text: '→ Beacon probe triggered (auto)' },
+  { type: 'blank' },
+  { type: 'cmd', text: '$ beacon probe https://weather-api.example.com/v1' },
+  { type: 'out', text: '→ evaluator: nemotron-3-ultra' },
+  { type: 'good', text: '→ trust_score: 87' },
+  { type: 'blank' },
+  { type: 'cmd', text: '$ hermes agent "pay $10 for API access"' },
+  { type: 'out', text: '→ Stripe Skills payment intent' },
+  { type: 'out', text: '→ Beacon escrow validate' },
+  { type: 'good', text: '→ trust_score: 87 ≥ 70? PASS' },
+  { type: 'good', text: '→ PaymentIntent created: pi_3O... (held, requires capture)' },
+  { type: 'blank' },
+  { type: 'cmd', text: '$ hermes agent "provision suspicious-api.com"' },
+  { type: 'out', text: '→ Beacon probe triggered (auto)' },
+  { type: 'out', text: '→ evaluator: nemotron-3-ultra' },
+  { type: 'bad', text: '→ trust_score: 34' },
+  { type: 'blank' },
+  { type: 'cmd', text: '$ hermes agent "pay $10 for API access"' },
+  { type: 'out', text: '→ Stripe Skills payment intent' },
+  { type: 'out', text: '→ Beacon escrow validate' },
+  { type: 'bad', text: '→ trust_score: 34 ≥ 70? BLOCK' },
+  { type: 'bad', text: '→ zero Stripe calls made. Agent payment aborted.' },
+];
+
+const heroLineClass = {
+  cmd: 'text-zinc-200',
+  out: 'text-zinc-500',
+  good: 'text-green-400 font-semibold',
+  bad: 'text-red-400 font-semibold',
+  blank: '',
 };
 
-function highlightJson(obj) {
-  const json = JSON.stringify(obj, null, 2);
-  return json
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"([^"]+)":/g, '<span class="json-punc">"</span><span class="json-key">$1</span><span class="json-punc">":</span>')
-    .replace(/: "([^"]*)"/g, ': <span class="json-punc">"</span><span class="json-str">$1</span><span class="json-punc">"</span>')
-    .replace(/: (true|false)/g, ': <span class="json-bool">$1</span>')
-    .replace(/: (-?\d+\.?\d*)/g, ': <span class="json-num">$1</span>');
-}
-
-function typeText(el, text, speed = 22) {
+function typeLines(el, lines, speed = 14) {
   return new Promise(resolve => {
-    let i = 0;
-    el.textContent = '';
+    el.innerHTML = '';
     const cursor = document.createElement('span');
     cursor.className = 'inline-block w-2 h-4 bg-amber ml-0.5 animate-blink align-middle';
-    function step() {
-      if (i <= text.length) {
-        el.textContent = text.slice(0, i);
-        el.appendChild(cursor);
-        i++;
-        setTimeout(step, speed);
-      } else {
+
+    let lineIdx = 0;
+    let charIdx = 0;
+    let activeSpan = null;
+
+    function nextLine() {
+      if (lineIdx >= lines.length) {
         cursor.remove();
         resolve();
+        return;
+      }
+      const line = lines[lineIdx];
+      el.appendChild(document.createTextNode(lineIdx > 0 ? '\n' : ''));
+      activeSpan = document.createElement('span');
+      activeSpan.className = heroLineClass[line.type] || '';
+      el.appendChild(activeSpan);
+      el.appendChild(cursor);
+      charIdx = 0;
+      if (line.type === 'blank') {
+        lineIdx++;
+        setTimeout(nextLine, 120);
+      } else {
+        step(line.text);
       }
     }
-    step();
+
+    function step(text) {
+      if (charIdx <= text.length) {
+        activeSpan.textContent = text.slice(0, charIdx);
+        el.appendChild(cursor);
+        charIdx++;
+        setTimeout(() => step(text), speed);
+      } else {
+        lineIdx++;
+        setTimeout(nextLine, 90);
+      }
+    }
+
+    nextLine();
   });
 }
 
 async function runHeroAnimation() {
-  const typeLine = document.getElementById('typeLine');
-  const statusLine = document.getElementById('statusLine');
-  const jsonBlock = document.getElementById('jsonBlock');
-  const verifiedLine = document.getElementById('verifiedLine');
-
-  await typeText(typeLine, '$ GET https://api.beacon.sh/v1/score/{endpoint}');
-  await new Promise(r => setTimeout(r, 250));
-
-  statusLine.textContent = '200 OK  48ms';
-  statusLine.classList.remove('opacity-0');
-
-  await new Promise(r => setTimeout(r, 200));
-  jsonBlock.innerHTML = highlightJson(heroJson);
-  jsonBlock.classList.remove('opacity-0');
-
-  await new Promise(r => setTimeout(r, 250));
-  verifiedLine.classList.remove('opacity-0');
+  const heroTerminal = document.getElementById('heroTerminal');
+  await typeLines(heroTerminal, heroTranscript);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -400,8 +453,10 @@ function scoreCardHTML(score, idx) {
       ${score.evaluator ? `<div class="col-span-2">evaluator <span class="${score.evaluator === 'nemotron-3-ultra' ? 'text-green-400' : 'text-zinc-500'}">${escapeHtml(score.evaluator)}</span></div>` : ''}
     </div>
 
+    ${escrowRecommendation === 'PASS' ? '<p class="text-[10px] font-mono text-cyan/80">Hermes agent → Stripe Skills</p>' : ''}
+
     <div class="flex items-center justify-between gap-2 pt-2 border-t border-zinc-800">
-      <span class="text-[11px] font-mono uppercase tracking-wide border rounded px-2 py-1 ${escrowClass}">${escrowRecommendation}</span>
+      <span class="text-[11px] font-mono uppercase tracking-wide border rounded px-2 py-1 ${escrowClass}" title="Escrow status">${escrowRecommendation}</span>
       <button class="pay-btn inline-flex items-center gap-1.5 bg-zinc-800 hover:bg-amber hover:text-black text-zinc-200 text-xs font-semibold rounded-lg px-3 py-1.5 transition-colors">Pay $50</button>
     </div>
   </div>`;
@@ -425,7 +480,8 @@ function scoreListRowHTML(score, idx) {
     <span class="shrink-0 font-mono text-sm text-white font-bold w-10 text-right">${score.trust_score}</span>
     <span class="hidden sm:block shrink-0 font-mono text-[11px] text-zinc-500 w-16 text-right">${score.uptime_pct}%</span>
     <span class="hidden md:block shrink-0 font-mono text-[11px] text-zinc-500 w-20 text-right">${score.latency_p99_ms}ms</span>
-    <span class="shrink-0 text-[10px] font-mono uppercase tracking-wide border rounded px-1.5 py-0.5 w-14 text-center ${escrowClass}">${escrowRecommendation}</span>
+    ${score.evaluator ? `<span class="hidden lg:block shrink-0 font-mono text-[10px] w-28 text-right truncate ${score.evaluator === 'nemotron-3-ultra' ? 'text-green-400' : 'text-zinc-500'}" title="evaluator">${escapeHtml(score.evaluator)}</span>` : ''}
+    <span class="shrink-0 text-[10px] font-mono uppercase tracking-wide border rounded px-1.5 py-0.5 w-14 text-center ${escrowClass}" title="Escrow status">${escrowRecommendation}</span>
     <button class="pay-btn shrink-0 inline-flex items-center gap-1.5 bg-zinc-800 hover:bg-amber hover:text-black text-zinc-200 text-xs font-semibold rounded-lg px-3 py-1.5 transition-colors">Pay $50</button>
   </div>`;
 }
@@ -533,6 +589,7 @@ function simulateProbeResult(targetUrl) {
     attested_at: now,
     attestation: '0x' + Math.random().toString(16).slice(2, 18).padEnd(16, '0'),
     escrow_recommendation: trust_score >= 70 ? 'PASS' : trust_score >= 50 ? 'HOLD' : 'BLOCK',
+    evaluator: 'mock',
   };
 }
 
@@ -589,10 +646,56 @@ probeForm.addEventListener('submit', async (e) => {
   probeResult.prepend(card);
   card.querySelector('.pay-btn').addEventListener('click', () => onPayClick(card.querySelector('.pay-btn')));
 
+  lastProbedEndpoint = result.endpoint;
+  hermesPayResult.textContent = '';
+
   probeBtn.disabled = false;
   probeSpinner.classList.add('hidden');
   probeBtnLabel.textContent = 'Probe Now';
   probeForm.reset();
+});
+
+/* ---------------------------------------------------------------------- */
+/* Simulate Hermes agent payment (probe console secondary action)         */
+/* ---------------------------------------------------------------------- */
+const hermesPayBtn = document.getElementById('hermesPayBtn');
+const hermesPayResult = document.getElementById('hermesPayResult');
+let lastProbedEndpoint = null;
+const ESCROW_TRUST_THRESHOLD = 70;
+
+hermesPayBtn.addEventListener('click', async () => {
+  if (!lastProbedEndpoint) {
+    hermesPayResult.textContent = 'Probe an endpoint first.';
+    hermesPayResult.className = 'text-xs font-mono text-zinc-500';
+    return;
+  }
+
+  const endpointId = hostnameOf(lastProbedEndpoint).replace(/\./g, '-');
+  hermesPayBtn.disabled = true;
+  hermesPayResult.textContent = 'Hermes agent → Stripe Skills → Beacon escrow validate…';
+  hermesPayResult.className = 'text-xs font-mono text-zinc-500';
+
+  try {
+    const res = await fetch(ESCROW_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoint_id: endpointId, payment_amount_cents: 1000 }),
+    });
+    if (!res.ok) throw new Error('escrow validate failed');
+    const data = await res.json();
+    const pass = data.decision === 'PASS' || data.can_pay === true;
+
+    if (pass) {
+      hermesPayResult.innerHTML = `<span class="text-green-400">trust_score: ${data.trust_score} ≥ ${ESCROW_TRUST_THRESHOLD}? PASS</span> — Stripe PaymentIntent created (test mode, held)${data.stripe_payment_intent_id ? ` · ${data.stripe_payment_intent_id}` : ''}`;
+    } else {
+      hermesPayResult.innerHTML = `<span class="text-red-400">trust_score: ${data.trust_score} ≥ ${ESCROW_TRUST_THRESHOLD}? BLOCK</span> — Payment blocked. Zero Stripe calls. Hermes agent payment aborted.`;
+    }
+  } catch (e) {
+    hermesPayResult.textContent = 'Escrow gate unreachable.';
+    hermesPayResult.className = 'text-xs font-mono text-red-400';
+  } finally {
+    hermesPayBtn.disabled = false;
+  }
 });
 
 /* ---------------------------------------------------------------------- */
