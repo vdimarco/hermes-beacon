@@ -29,3 +29,12 @@ HTTP_TIMEOUT_SECONDS = 5.0
 
 # Comma-separated list of allowed origins for CORS. "*" for local dev.
 CORS_ALLOW_ORIGINS = os.environ.get("CORS_ALLOW_ORIGINS", "*").split(",")
+
+# Used only by scripts/hermes_orchestrator.py (optional, not a running
+# service). Each has a real, working default but the underlying binary
+# isn't installed in every environment -- the orchestrator degrades
+# gracefully when one is missing, same as NOUS_API_KEY/STRIPE_SECRET_KEY.
+HERMES_CLI_PATH = os.environ.get("HERMES_CLI_PATH", "hermes")
+STRIPE_LINK_CLI_CMD = os.environ.get("STRIPE_LINK_CLI_CMD", "npx @stripe/link-cli").split()
+STRIPE_PROJECTS_CLI_PATH = os.environ.get("STRIPE_PROJECTS_CLI_PATH", "stripe")
+ALERT_PHONE_NUMBER = os.environ.get("ALERT_PHONE_NUMBER")

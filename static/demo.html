@@ -70,10 +70,10 @@
   <div class="relative max-w-6xl mx-auto px-6 pt-16 pb-12">
     <div class="max-w-2xl mb-6">
       <h1 class="text-3xl sm:text-4xl font-bold text-white tracking-tight">
-        Hermes agents use <span class="text-amber">Stripe Skills</span> to pay autonomously.
+        Credit scores for <span class="text-amber">AI services</span>.
       </h1>
       <p class="mt-3 text-zinc-400">
-        Beacon probes with <span class="text-cyan">NVIDIA Nemotron 3 Ultra</span>, scores every API, and gates the payment — so bad endpoints never touch your money.
+        Beacon probes with <span class="text-cyan">NVIDIA Nemotron 3 Ultra</span>, scores every API, and gates the payment — so bad endpoints never touch your money. Hermes agents use <span class="text-amber">Stripe Skills</span> to pay autonomously once an endpoint clears the gate.
       </p>
     </div>
 
@@ -540,6 +540,12 @@ function setScoreboardView(view) {
 viewCardsBtn.addEventListener('click', () => setScoreboardView('cards'));
 viewListBtn.addEventListener('click', () => setScoreboardView('list'));
 
+function mergeWithSeedScores(liveScores) {
+  const liveEndpoints = new Set(liveScores.map(s => s.endpoint));
+  const seedFillers = seed_scores.filter(s => !liveEndpoints.has(s.endpoint));
+  return [...liveScores, ...seedFillers].sort((a, b) => b.trust_score - a.trust_score);
+}
+
 async function loadScoreboard() {
   const status = document.getElementById('scoreboardStatus');
   status.textContent = 'fetching…';
@@ -548,9 +554,9 @@ async function loadScoreboard() {
     if (!res.ok) throw new Error('bad status');
     const data = await res.json();
     if (!Array.isArray(data) || data.length === 0) throw new Error('empty');
-    currentScores = data;
+    currentScores = mergeWithSeedScores(data);
     applyScoreboardView();
-    status.textContent = `live · ${data.length} endpoints`;
+    status.textContent = `live · ${data.length} endpoints + ${currentScores.length - data.length} sample`;
     status.classList.add('text-green-400');
   } catch (e) {
     currentScores = seed_scores;

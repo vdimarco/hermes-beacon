@@ -172,6 +172,48 @@ passes — probe → score → escrow pass → escrow block → daily spend guar
    gateway — each plane could be slashed/audited independently in a real
    EigenLayer AVS.
 
+## Hermes orchestrator (optional)
+
+`scripts/hermes_orchestrator.py` is a standalone client of the gateway
+(like `competitor_intel.py` / `seed_data.py` — no new service, doesn't
+touch `run.py`) that demonstrates Beacon being driven by an autonomous
+agent instead of the manual demo UI. It picks a candidate target, probes
+it, gates payment through escrow, and — if the real external tools are
+installed — actually pays for it and alerts on failure.
+
+Three distinct Stripe surfaces are involved:
+
+| Surface | Side | Where |
+|---|---|---|
+| Beacon's own `escrow_gate.py` | merchant — creates/captures a PaymentIntent against Beacon's Stripe account | already in this repo |
+| **Stripe Link CLI** (`@stripe/link-cli`) | buyer — the agent requests approval and spends from the operator's Link wallet to pay a *different* merchant | `scripts/hermes_orchestrator.py` |
+| **Stripe Projects CLI** (`stripe projects`) | infra — provisions a Twilio SMS service for this project so BLOCK verdicts can page an operator (real billing) | `scripts/hermes_orchestrator.py --provision` |
+
+Flow: load `targets.json` (produced by `competitor_intel.py`) → ask the
+real `hermes` CLI to pick a candidate for a task (`hermes chat -q ...`),
+falling back to a deterministic picker if `hermes` isn't installed →
+`POST /api/probe/v1/probe` → `POST /api/escrow/v1/escrow/validate` → on
+PASS, run the real Link CLI buyer-side sequence (`auth status` →
+`spend-request create --request-approval` → `spend-request retrieve
+--output-file`, card data never enters this script's memory, the temp
+file is deleted immediately after use) → on BLOCK, or if the Link spend
+fails, send a Twilio SMS alert using credentials `stripe projects add
+twilio/sms` synced into `.env`.
+
+```bash
+python scripts/hermes_orchestrator.py --task "find a weather API and verify it"
+python scripts/hermes_orchestrator.py --task "..." --provision   # also sets up Twilio SMS alerts
+```
+
+None of `hermes`, `@stripe/link-cli` (needs Node 20+ and a Link
+account), or the `stripe` CLI need to be installed for the script to
+run — each missing piece degrades to a labeled `not_found` /
+`not_configured` result in the JSON summary instead of crashing, the
+same fallback contract `NOUS_API_KEY` and `STRIPE_SECRET_KEY` already
+use elsewhere in this repo. `stripe projects add` and the resulting
+`.env`/`.projects/vault/` are git-ignored since they hold real
+credentials and trigger real Stripe billing.
+
 ## What's still mocked / demo-only
 
 This is a real, persistent backend, not a toy — but a few pieces are

@@ -3,3 +3,7 @@ __pycache__/
 *.pyc
 db/*.db
 .DS_Store
+
+# Real credentials synced by `stripe projects add` (scripts/hermes_orchestrator.py --provision)
+.env
+.projects/
