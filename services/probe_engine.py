@@ -84,6 +84,14 @@ def init_db():
             # probe was ever run against the endpoint), 0 for rows written
             # by a live POST /v1/probe call below.
             conn.execute("ALTER TABLE scores ADD COLUMN synthetic INTEGER DEFAULT 0")
+        # Backfill: rows seeded by scripts/seed_data.py before the synthetic
+        # column existed default to 0 from the ALTER above (they pre-date the
+        # init_databases.py "only seed if empty" guard, so seed_data.py never
+        # re-runs to set this). Idempotent -- safe on every startup.
+        conn.execute(
+            "UPDATE scores SET synthetic = 1 WHERE endpoint_id IN (?, ?, ?) AND synthetic = 0",
+            ("api-weather-ai-com", "api-tradebot-x-io", "api-scamcoin-signals-net"),
+        )
 
 
 @app.on_event("startup")
