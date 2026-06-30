@@ -395,6 +395,7 @@ function scoreCardHTML(score, idx) {
       <div class="col-span-2">verified_by <span class="text-cyan">${score.verified_by}</span></div>
       <div class="col-span-2 truncate" title="${escapeHtml(score.attested_at)}">attested <span class="text-zinc-300">${fmtDate(score.attested_at)}</span></div>
       <div class="col-span-2 truncate" title="${escapeHtml(score.attestation)}">attestation <span class="text-amber">${score.attestation}</span></div>
+      ${score.evaluator ? `<div class="col-span-2">evaluator <span class="${score.evaluator === 'nemotron-3-ultra' ? 'text-green-400' : 'text-zinc-500'}">${escapeHtml(score.evaluator)}</span></div>` : ''}
     </div>
 
     <div class="flex items-center justify-between gap-2 pt-2 border-t border-zinc-800">

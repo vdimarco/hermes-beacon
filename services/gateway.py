@@ -36,10 +36,11 @@ async def proxy(upstream_base: str, path: str, request: Request) -> Response:
     headers = {k: v for k, v in request.headers.items() if k.lower() not in HOP_BY_HOP_HEADERS}
     body = await request.body()
 
-    # Generous timeout: backend services (probe_engine in particular) can
-    # legitimately take close to their own internal timeout to respond.
+    # Generous timeout: /v1/probe can legitimately take close to
+    # PROBE_TIMEOUT_SECONDS (5s, probing the target) plus NOUS_TIMEOUT_SECONDS
+    # (25s, the live Nemotron 3 Ultra call) before responding.
     try:
-        async with httpx.AsyncClient(timeout=config.HTTP_TIMEOUT_SECONDS + 10) as client:
+        async with httpx.AsyncClient(timeout=45.0) as client:
             resp = await client.request(
                 request.method,
                 url,

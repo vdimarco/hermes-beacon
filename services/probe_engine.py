@@ -145,11 +145,32 @@ def execute_probe(target_url: str, payload: dict) -> tuple[Optional[Any], int, b
         return None, latency_ms, True, None
 
 
+NOUS_API_BASE = "https://inference-api.nousresearch.com/v1"
+NOUS_MODEL = "nvidia/nemotron-3-ultra-550b-a55b"
+# Nemotron 3 Ultra is a large reasoning model; it routinely takes well over
+# the 5s target-probe timeout to respond, so it gets its own budget.
+NOUS_TIMEOUT_SECONDS = 25.0
+
+
+def _extract_json_object(text: str) -> dict:
+    """Chat models often wrap JSON in prose or markdown fences; pull out the
+    first {...} object rather than assuming the response is pure JSON."""
+    try:
+        return json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        pass
+    start = text.find("{")
+    end = text.rfind("}")
+    if start == -1 or end == -1 or end < start:
+        raise ValueError(f"No JSON object found in model response: {text!r}")
+    return json.loads(text[start:end + 1])
+
+
 def call_nemotron_real(task_description: str, payload: dict, response_body: Any, ground_truth: str) -> dict:
-    """Calls the real NVIDIA Nemotron API. Requires NVIDIA_API_KEY env var."""
-    api_key = os.environ.get("NVIDIA_API_KEY")
+    """Calls Nemotron via Nous Research's inference API. Requires NOUS_API_KEY env var."""
+    api_key = os.environ.get("NOUS_API_KEY")
     if not api_key:
-        raise RuntimeError("NVIDIA_API_KEY not set")
+        raise RuntimeError("NOUS_API_KEY not set")
 
     prompt = (
         f"You are a quality evaluator. An API claims it can do: {task_description}.\n"
@@ -162,18 +183,24 @@ def call_nemotron_real(task_description: str, payload: dict, response_body: Any,
         "(3) Hallucination: did it invent facts not supported by the response? (true/false)\n"
         'Return ONLY JSON: {"accuracy": 0.0-1.0, "error_rate": 0.0-1.0, "hallucination_detected": true/false}'
     )
-    with httpx.Client(timeout=config.HTTP_TIMEOUT_SECONDS) as client:
+    with httpx.Client(timeout=NOUS_TIMEOUT_SECONDS) as client:
         resp = client.post(
-            "https://integrate.api.nvidia.com/v1/chat/completions",
+            f"{NOUS_API_BASE}/chat/completions",
             headers={"Authorization": f"Bearer {api_key}"},
             json={
-                "model": "nvidia/llama-3.1-nemotron-70b-instruct",
+                "model": NOUS_MODEL,
                 "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0,
             },
         )
         resp.raise_for_status()
         content = resp.json()["choices"][0]["message"]["content"]
-        return json.loads(content)
+        evaluation = _extract_json_object(content)
+        return {
+            "accuracy": float(evaluation["accuracy"]),
+            "error_rate": float(evaluation["error_rate"]),
+            "hallucination_detected": bool(evaluation["hallucination_detected"]),
+        }
 
 
 def call_nemotron_mock(status_code: Optional[int], response_body: Any, ground_truth: str, error_occurred: bool) -> dict:
@@ -193,11 +220,17 @@ def call_nemotron_mock(status_code: Optional[int], response_body: Any, ground_tr
 
 
 def evaluate_with_nemotron(task_description: str, payload: dict, response_body: Any, ground_truth: str,
-                            status_code: Optional[int], error_occurred: bool) -> dict:
+                            status_code: Optional[int], error_occurred: bool) -> tuple[dict, str]:
+    """Returns (evaluation, evaluator_label). evaluator_label is surfaced in the
+    API response so it's visible (e.g. in logs/demo) whether this probe was
+    actually scored by the live Nemotron model or fell back to the mock."""
     try:
-        return call_nemotron_real(task_description, payload, response_body, ground_truth)
-    except Exception:
-        return call_nemotron_mock(status_code, response_body, ground_truth, error_occurred)
+        evaluation = call_nemotron_real(task_description, payload, response_body, ground_truth)
+        return evaluation, "nemotron-3-ultra"
+    except Exception as e:
+        print(f"[probe_engine] Nemotron call failed, falling back to mock evaluator: {e}")
+        evaluation = call_nemotron_mock(status_code, response_body, ground_truth, error_occurred)
+        return evaluation, "mock"
 
 
 def calculate_trust_score(accuracy: float, error_rate: float, error_occurred: bool, hallucination_detected: bool) -> int:
@@ -252,8 +285,9 @@ def probe(req: ProbeRequest):
             accuracy = 0.2
             error_rate = 1.0
             hallucination_detected = False
+            evaluator = "error-path"
         else:
-            evaluation = evaluate_with_nemotron(
+            evaluation, evaluator = evaluate_with_nemotron(
                 req.task_description, req.payload, response_body, req.ground_truth,
                 status_code, error_occurred,
             )
@@ -309,4 +343,5 @@ def probe(req: ProbeRequest):
             "verified_by": VERIFIED_BY,
             "attested_at": now,
             "attestation": attestation,
+            "evaluator": evaluator,
         }

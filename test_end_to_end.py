@@ -37,11 +37,13 @@ def check(label: str, condition: bool, detail: str = ""):
 
 
 def main():
-    client = httpx.Client(timeout=10.0)
+    # /v1/probe can take up to ~30s when NOUS_API_KEY is set and a probe
+    # actually triggers a live Nemotron 3 Ultra evaluation.
+    client = httpx.Client(timeout=45.0)
 
     # 1. POST to /v1/probe with a synthetic target
     probe_payload = {
-        "target_url": "https://httpbin.org/post",
+        "target_url": "https://postman-echo.com/post",
         "task_description": "Echo test payload back",
         "payload": {"hello": "beacon"},
         "ground_truth": "hello beacon",
@@ -62,7 +64,7 @@ def main():
     has_fields = all(k in body for k in ("trust_score", "grade", "attestation"))
     check("/v1/probe response has trust_score, grade, attestation", has_fields, str(body)[:200])
 
-    endpoint_id = "httpbin-org"
+    endpoint_id = "postman-echo-com"
 
     # 3. GET /v1/score/{endpoint_id} from ledger and verify it matches
     try:
