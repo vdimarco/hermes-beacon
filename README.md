@@ -47,6 +47,21 @@ Then open **http://localhost:8080** in your browser.
 `run.py` starts all 5 processes (4 internal APIs + the public gateway)
 in one terminal and shuts them all down cleanly on Ctrl+C.
 
+To populate the scoreboard with real (non-synthetic) entries instead of
+just the 3 fictional seed rows, run a handful of live probes against
+public, no-auth test/echo APIs:
+
+```bash
+python scripts/seed_real_probes.py                 # probes http://localhost:8080
+BASE_URL=https://hermes-beacon.fly.dev python scripts/seed_real_probes.py
+```
+
+These go through the real `/v1/probe` pipeline (`postman-echo.com`,
+`jsonplaceholder.typicode.com`, plus two real APIs that fail verification
+on purpose — `dog.ceo` only supports GET, `reqres.in` requires an API
+key) so they're marked `synthetic: false` and appear on the scoreboard
+without the "sample data" badge, same as any other live probe.
+
 ## Deploying to Fly.io
 
 The app is already provisioned (`hermes-beacon`, region `iad`) with a
