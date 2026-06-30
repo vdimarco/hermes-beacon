@@ -167,7 +167,8 @@
   <div class="relative bg-[#0d0d0f] border border-zinc-700 rounded-xl max-w-sm w-full p-7 text-center animate-fadein shadow-2xl">
     <div id="escrowIcon" class="mx-auto mb-4 w-14 h-14 rounded-full flex items-center justify-center text-2xl"></div>
     <h3 id="escrowTitle" class="text-lg font-bold text-white mb-2"></h3>
-    <p id="escrowSubtitle" class="text-sm text-zinc-400 mb-6 font-mono"></p>
+    <p id="escrowSubtitle" class="text-sm text-zinc-400 mb-3 font-mono"></p>
+    <p id="escrowStripeLine" class="hidden text-[11px] text-zinc-500 mb-6 font-mono break-all"></p>
     <button id="escrowClose" class="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold rounded-lg py-2.5 transition-colors">Close</button>
   </div>
 </div>
@@ -182,6 +183,7 @@
 const SCORES_API = '/api/ledger/v1/scores';
 const PROBE_API   = '/api/probe/v1/probe';
 const ESCROW_API  = '/api/escrow/v1/escrow/validate';
+const ESCROW_EXECUTE_API = '/api/escrow/v1/escrow/execute';
 
 const HEALTH_SERVICES = [
   { name: 'probe_engine', url: '/api/probe/health' },
@@ -603,7 +605,7 @@ const escrowTitle = document.getElementById('escrowTitle');
 const escrowSubtitle = document.getElementById('escrowSubtitle');
 const escrowClose = document.getElementById('escrowClose');
 
-function showEscrowModal(pass, reason) {
+function showEscrowModal(pass, reason, stripeInfo) {
   if (pass) {
     escrowIcon.className = 'mx-auto mb-4 w-14 h-14 rounded-full flex items-center justify-center text-2xl bg-green-400/10 text-green-400 ring-1 ring-green-400/30';
     escrowIcon.textContent = '✓';
@@ -615,6 +617,15 @@ function showEscrowModal(pass, reason) {
     escrowTitle.textContent = 'Payment Blocked';
     escrowSubtitle.textContent = reason || 'Blocked: trust_score too low';
   }
+
+  const stripeLine = document.getElementById('escrowStripeLine');
+  if (stripeInfo && stripeInfo.id) {
+    stripeLine.textContent = `stripe: ${stripeInfo.id} (${stripeInfo.status})`;
+    stripeLine.classList.remove('hidden');
+  } else {
+    stripeLine.classList.add('hidden');
+  }
+
   escrowModal.classList.remove('hidden');
 }
 
@@ -643,7 +654,24 @@ async function onPayClick(btn) {
     });
     if (!res.ok) throw new Error('escrow rejected');
     const data = await res.json();
-    showEscrowModal(data.decision === 'PASS' || data.released === true, data.reason);
+    const pass = data.decision === 'PASS' || data.released === true;
+
+    if (pass && data.stripe_payment_intent_id) {
+      btn.textContent = 'Capturing…';
+      const execRes = await fetch(ESCROW_EXECUTE_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ escrow_id: data.escrow_id, stripe_payment_intent_id: data.stripe_payment_intent_id }),
+      });
+      const execData = execRes.ok ? await execRes.json() : null;
+      showEscrowModal(true, data.reason, execData && execData.stripe_payment_intent_id
+        ? { id: execData.stripe_payment_intent_id, status: execData.stripe_status }
+        : null);
+    } else {
+      showEscrowModal(pass, data.reason, data.stripe_payment_intent_id
+        ? { id: data.stripe_payment_intent_id, status: data.stripe_status }
+        : null);
+    }
   } catch (e) {
     showEscrowModal(trustScore >= 70, 'Blocked: trust_score too low');
   } finally {
