@@ -169,20 +169,18 @@
 /* ---------------------------------------------------------------------- */
 /* Config                                                                  */
 /* ---------------------------------------------------------------------- */
-const PROBE_ENGINE_URL = 'http://localhost:8000';
-const LEDGER_API_URL = 'http://localhost:8001';
-const ATTESTATION_URL = 'http://localhost:8002';
-const ESCROW_GATE_URL = 'http://localhost:8003';
-
-const SCORES_API = `${LEDGER_API_URL}/v1/scores`;
-const PROBE_API   = `${PROBE_ENGINE_URL}/v1/probe`;
-const ESCROW_API  = `${ESCROW_GATE_URL}/v1/escrow/validate`;
+/* All API calls go through the gateway's same-origin /api/* proxy, so this
+   page works unmodified whether served from localhost:8080 or a real
+   domain — no hardcoded hosts or ports. */
+const SCORES_API = '/api/ledger/v1/scores';
+const PROBE_API   = '/api/probe/v1/probe';
+const ESCROW_API  = '/api/escrow/v1/escrow/validate';
 
 const HEALTH_SERVICES = [
-  { name: 'probe_engine', url: `${PROBE_ENGINE_URL}/health` },
-  { name: 'ledger_api', url: `${LEDGER_API_URL}/health` },
-  { name: 'attestation', url: `${ATTESTATION_URL}/health` },
-  { name: 'escrow_gate', url: `${ESCROW_GATE_URL}/health` },
+  { name: 'probe_engine', url: '/api/probe/health' },
+  { name: 'ledger_api', url: '/api/ledger/health' },
+  { name: 'attestation', url: '/api/attestation/health' },
+  { name: 'escrow_gate', url: '/api/escrow/health' },
 ];
 
 async function loadHealth() {

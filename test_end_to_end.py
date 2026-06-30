@@ -1,13 +1,22 @@
-"""Integration test for the full Beacon demo flow. Requires `python run.py` running.
+"""Integration test for the full Beacon demo flow. Requires `python run.py`
+running (locally or deployed). Tests go through the public gateway, the
+same path a real browser/client uses — internal services aren't reachable
+directly once deployed.
 
-Usage: python test_end_to_end.py
+Usage:
+  python test_end_to_end.py                  # tests http://localhost:8080
+  BASE_URL=https://your-app.fly.dev python test_end_to_end.py
 """
+import os
 import sys
 import time
 
 import httpx
 
-import config
+BASE_URL = os.environ.get("BASE_URL", "http://localhost:8080").rstrip("/")
+PROBE_BASE = f"{BASE_URL}/api/probe"
+LEDGER_BASE = f"{BASE_URL}/api/ledger"
+ESCROW_BASE = f"{BASE_URL}/api/escrow"
 
 GREEN = "\033[92m"
 RED = "\033[91m"
@@ -39,7 +48,7 @@ def main():
         "spend_amount_cents": 1,
     }
     try:
-        resp = client.post(f"{config.PROBE_ENGINE_URL}/v1/probe", json=probe_payload)
+        resp = client.post(f"{PROBE_BASE}/v1/probe", json=probe_payload)
         probe_ok = resp.status_code == 200
         body = resp.json() if probe_ok else {}
     except httpx.HTTPError as e:
@@ -57,7 +66,7 @@ def main():
 
     # 3. GET /v1/score/{endpoint_id} from ledger and verify it matches
     try:
-        score_resp = client.get(f"{config.LEDGER_API_URL}/v1/score/{endpoint_id}")
+        score_resp = client.get(f"{LEDGER_BASE}/v1/score/{endpoint_id}")
         score_ok = score_resp.status_code == 200
         score_body = score_resp.json() if score_ok else {}
     except httpx.HTTPError:
@@ -70,7 +79,7 @@ def main():
     # 4. POST /v1/escrow/validate with payment_amount_cents=5000
     try:
         escrow_resp = client.post(
-            f"{config.ESCROW_GATE_URL}/v1/escrow/validate",
+            f"{ESCROW_BASE}/v1/escrow/validate",
             json={"endpoint_id": endpoint_id, "payment_amount_cents": 5000},
         )
         escrow_ok = escrow_resp.status_code == 200
@@ -89,7 +98,7 @@ def main():
     # 5. POST /v1/escrow/validate with a known low-score endpoint -> can_pay false
     try:
         low_resp = client.post(
-            f"{config.ESCROW_GATE_URL}/v1/escrow/validate",
+            f"{ESCROW_BASE}/v1/escrow/validate",
             json={"endpoint_id": "api-scamcoin-signals-net", "payment_amount_cents": 5000},
         )
         low_ok = low_resp.status_code == 200
@@ -106,7 +115,7 @@ def main():
     for i in range(15):
         try:
             r = client.post(
-                f"{config.PROBE_ENGINE_URL}/v1/probe",
+                f"{PROBE_BASE}/v1/probe",
                 json={**probe_payload, "spend_amount_cents": 400},
             )
         except httpx.HTTPError:
