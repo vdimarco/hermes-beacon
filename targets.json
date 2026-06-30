@@ -1,0 +1,107 @@
+[
+  {
+    "endpoint_id": "opengap-ai",
+    "url": "https://opengap-ai.vercel.app/",
+    "probe_type": "health_check",
+    "task_description": "OpenGap AI landing page should be reachable and return a successful HTTP status.",
+    "payload": {
+      "method": "GET",
+      "path": "/"
+    },
+    "ground_truth": "HTTP 200-299 response on GET /",
+    "spend_amount_cents": 3
+  },
+  {
+    "endpoint_id": "the-partenon",
+    "url": "https://hermespartenon.online/",
+    "probe_type": "health_check",
+    "task_description": "The Partenon landing page should be reachable and return a successful HTTP status.",
+    "payload": {
+      "method": "GET",
+      "path": "/"
+    },
+    "ground_truth": "HTTP 200-299 response on GET /",
+    "spend_amount_cents": 3
+  },
+  {
+    "endpoint_id": "partenon-github",
+    "url": "https://github.com/cuentadeservicio377-cell/partenon",
+    "probe_type": "health_check",
+    "task_description": "Partenon GitHub repo landing page should be reachable and return a successful HTTP status.",
+    "payload": {
+      "method": "GET",
+      "path": "/"
+    },
+    "ground_truth": "HTTP 200-299 response on GET /",
+    "spend_amount_cents": 3
+  },
+  {
+    "endpoint_id": "downtimemachine",
+    "url": "https://downtimemachine.com",
+    "probe_type": "health_check",
+    "task_description": "DowntimeMachine landing page should be reachable and return a successful HTTP status.",
+    "payload": {
+      "method": "GET",
+      "path": "/"
+    },
+    "ground_truth": "HTTP 200-299 response on GET /",
+    "spend_amount_cents": 3
+  },
+  {
+    "endpoint_id": "ronin-agent",
+    "url": "https://ronin-agent.vercel.app",
+    "probe_type": "health_check",
+    "task_description": "Ronin landing page should be reachable and return a successful HTTP status.",
+    "payload": {
+      "method": "GET",
+      "path": "/"
+    },
+    "ground_truth": "HTTP 200-299 response on GET /",
+    "spend_amount_cents": 3
+  },
+  {
+    "endpoint_id": "clipit",
+    "url": "https://clipit.dev",
+    "probe_type": "health_check",
+    "task_description": "Clipit landing page should be reachable and return a successful HTTP status.",
+    "payload": {
+      "method": "GET",
+      "path": "/"
+    },
+    "ground_truth": "HTTP 200-299 response on GET /",
+    "spend_amount_cents": 3
+  },
+  {
+    "endpoint_id": "three-ws",
+    "url": "https://three.ws",
+    "probe_type": "api",
+    "task_description": "three.ws exposes a documented API surface; verify it responds as advertised.",
+    "payload": {},
+    "ground_truth": "200 OK with a structured (JSON) response matching the documented API.",
+    "spend_amount_cents": 3
+  },
+  {
+    "endpoint_id": "headgate-caplifi",
+    "url": "https://headgate.caplifi.com",
+    "probe_type": "health_check",
+    "task_description": "CapliFi / Headgate landing page should be reachable and return a successful HTTP status.",
+    "payload": {
+      "method": "GET",
+      "path": "/"
+    },
+    "ground_truth": "HTTP 200-299 response on GET /",
+    "spend_amount_cents": 3
+  },
+  {
+    "endpoint_id": "hivemind-agent",
+    "url": "https://hivemind-agent.vercel.app",
+    "probe_type": "health_check",
+    "task_description": "HiveMind landing page should be reachable and return a successful HTTP status.",
+    "payload": {
+      "method": "GET",
+      "path": "/"
+    },
+    "ground_truth": "HTTP 200-299 response on GET /",
+    "spend_amount_cents": 3
+  }
+]

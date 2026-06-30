@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Beacon — Pricing</title>
+<style>
+  :root {
+    --bg: #0b0d12;
+    --card: #131722;
+    --border: #232838;
+    --text: #e8eaf0;
+    --muted: #8a90a3;
+    --accent: #6ee7b7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    padding: 64px 24px;
+  }
+  h1 {
+    text-align: center;
+    font-size: 2.25rem;
+    margin-bottom: 0.5rem;
+  }
+  p.sub {
+    text-align: center;
+    color: var(--muted);
+    margin-bottom: 48px;
+  }
+  .plans {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(260px, 1fr));
+    gap: 24px;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  .plan {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px 28px;
+    display: flex;
+    flex-direction: column;
+  }
+  .plan.featured {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+  .plan h2 {
+    margin: 0 0 4px;
+    font-size: 1.1rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .price {
+    font-size: 2.4rem;
+    font-weight: 700;
+    margin: 8px 0 24px;
+  }
+  .price span {
+    font-size: 1rem;
+    font-weight: 400;
+    color: var(--muted);
+  }
+  ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    flex: 1;
+  }
+  li {
+    padding: 8px 0;
+    border-top: 1px solid var(--border);
+    color: var(--text);
+    font-size: 0.95rem;
+  }
+  li:first-child { border-top: none; }
+  li::before {
+    content: "✓ ";
+    color: var(--accent);
+  }
+</style>
+</head>
+<body>
+  <h1>Pricing</h1>
+  <p class="sub">Trust verification for agentic commerce — pay only for what you read.</p>
+
+  <div class="plans">
+    <div class="plan">
+      <h2>Free</h2>
+      <div class="price">$0</div>
+      <ul>
+        <li>1,000 reads/month</li>
+        <li>Public leaderboard</li>
+        <li>Read-only API</li>
+      </ul>
+    </div>
+
+    <div class="plan featured">
+      <h2>Pro</h2>
+      <div class="price">$99<span>/month</span></div>
+      <ul>
+        <li>100,000 reads</li>
+        <li>$0.001/query beyond</li>
+        <li>Batch routing</li>
+        <li>Signed receipts</li>
+        <li>Synthetic probing</li>
+      </ul>
+    </div>
+
+    <div class="plan">
+      <h2>Enterprise</h2>
+      <div class="price">Custom</div>
+      <ul>
+        <li>Unlimited reads</li>
+        <li>Conditional escrow</li>
+        <li>SLA attestations</li>
+        <li>Staked verifier network</li>
+        <li>On-chain audit</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

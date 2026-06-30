@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Beacon — Trust Scores for Agentic APIs</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          bg: '#0a0a0a',
+          amber: { DEFAULT: '#f59e0b' },
+          cyan: { DEFAULT: '#06b6d4' },
+        },
+        fontFamily: {
+          mono: ['"JetBrains Mono"', '"Fira Code"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        },
+        keyframes: {
+          fadein: { '0%': { opacity: 0, transform: 'translateY(8px)' }, '100%': { opacity: 1, transform: 'translateY(0)' } },
+          pulseGlow: { '0%, 100%': { opacity: 1 }, '50%': { opacity: .55 } },
+          blink: { '0%, 100%': { opacity: 1 }, '50%': { opacity: 0 } },
+        },
+        animation: {
+          fadein: 'fadein .5s ease-out both',
+          pulseGlow: 'pulseGlow 2s ease-in-out infinite',
+          blink: 'blink 1s step-end infinite',
+        },
+      },
+    },
+  };
+</script>
+<style>
+  body { background: #0a0a0a; }
+  ::selection { background: #f59e0b55; }
+  .scrollbar-thin::-webkit-scrollbar { height: 6px; width: 6px; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: #27272a; border-radius: 4px; }
+  .json-key { color: #06b6d4; }
+  .json-str { color: #f59e0b; }
+  .json-num { color: #a78bfa; }
+  .json-bool { color: #34d399; }
+  .json-punc { color: #71717a; }
+  .grade-glow { text-shadow: 0 0 24px currentColor; }
+</style>
+</head>
+<body class="bg-bg text-zinc-200 font-sans antialiased min-h-screen">
+
+<!-- ============ NAV ============ -->
+<nav class="sticky top-0 z-40 backdrop-blur bg-bg/80 border-b border-zinc-800/80">
+  <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <span class="w-2.5 h-2.5 rounded-full bg-amber animate-pulseGlow"></span>
+      <span class="font-mono font-bold tracking-tight text-lg text-white">beacon<span class="text-amber">.sh</span></span>
+    </div>
+    <div class="hidden sm:flex items-center gap-6 text-sm text-zinc-400 font-mono">
+      <a href="#scoreboard" class="hover:text-amber transition-colors">scoreboard</a>
+      <a href="#probe" class="hover:text-cyan transition-colors">probe console</a>
+      <span class="px-2 py-1 rounded border border-zinc-700 text-zinc-500 text-xs">EigenLayer AVS</span>
+    </div>
+  </div>
+  <div class="max-w-6xl mx-auto px-6 pb-3 flex items-center gap-5" id="healthPanel">
+  </div>
+</nav>
+
+<!-- ============ SECTION 1: TERMINAL HERO ============ -->
+<section class="relative overflow-hidden border-b border-zinc-800/80">
+  <div class="absolute inset-0 pointer-events-none opacity-20" style="background:radial-gradient(circle at 30% 0%, #f59e0b22, transparent 60%), radial-gradient(circle at 80% 30%, #06b6d422, transparent 55%);"></div>
+
+  <div class="relative max-w-6xl mx-auto px-6 pt-16 pb-12">
+    <div class="max-w-2xl mb-10">
+      <h1 class="text-3xl sm:text-4xl font-bold text-white tracking-tight">
+        Trust scores for the <span class="text-amber">agentic web</span>.
+      </h1>
+      <p class="mt-3 text-zinc-400">
+        Beacon probes, scores, and attests every API your agents talk to — so payments only flow to endpoints that earned them.
+      </p>
+    </div>
+
+    <!-- Terminal window -->
+    <div class="rounded-xl border border-zinc-800 bg-[#0d0d0f] shadow-2xl shadow-black/50 overflow-hidden">
+      <div class="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 bg-[#111113]">
+        <span class="w-3 h-3 rounded-full bg-[#ff5f56]"></span>
+        <span class="w-3 h-3 rounded-full bg-[#ffbd2e]"></span>
+        <span class="w-3 h-3 rounded-full bg-[#27c93f]"></span>
+        <span class="ml-3 text-xs font-mono text-zinc-500">beacon — zsh</span>
+      </div>
+      <div class="p-5 sm:p-6 font-mono text-[13px] sm:text-sm leading-relaxed overflow-x-auto scrollbar-thin">
+        <div id="typeLine" class="text-zinc-200 whitespace-pre"></div>
+        <div id="statusLine" class="mt-2 text-green-400 font-semibold opacity-0 transition-opacity duration-500"></div>
+        <pre id="jsonBlock" class="mt-3 opacity-0 transition-opacity duration-700"></pre>
+        <div id="verifiedLine" class="mt-4 flex items-center gap-2 text-xs sm:text-sm opacity-0 transition-opacity duration-700">
+          <span class="text-green-400">✓</span>
+          <span class="text-zinc-400"><span class="text-amber">beacon-avs-v2</span> · <span class="text-cyan">EigenLayer AVS</span> · <span class="text-zinc-500">slashing-enabled</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats bar -->
+    <div class="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 px-5 py-4 flex items-center gap-4">
+        <span class="text-2xl sm:text-3xl font-bold text-amber font-mono">100M+</span>
+        <span class="text-sm text-zinc-400">Agentic transactions on rails</span>
+      </div>
+      <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 px-5 py-4 flex items-center gap-4">
+        <span class="text-2xl sm:text-3xl font-bold text-cyan font-mono">14,000+</span>
+        <span class="text-sm text-zinc-400">MCP servers scored</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SECTION 2: SCOREBOARD ============ -->
+<section id="scoreboard" class="max-w-6xl mx-auto px-6 py-14">
+  <div class="flex items-end justify-between mb-6 flex-wrap gap-3">
+    <div>
+      <h2 class="text-xl font-bold text-white">Scoreboard</h2>
+      <p class="text-sm text-zinc-500 mt-1">Live trust scores from <code class="font-mono text-zinc-400">GET /v1/scores</code></p>
+    </div>
+    <div id="scoreboardStatus" class="text-xs font-mono text-zinc-500"></div>
+  </div>
+
+  <div id="scoreCards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+</section>
+
+<!-- ============ SECTION 3: PROBE CONSOLE + ESCROW SIMULATOR ============ -->
+<section id="probe" class="max-w-6xl mx-auto px-6 pb-20">
+  <div class="rounded-xl border border-zinc-800 bg-zinc-900/30 p-6 sm:p-8">
+    <h2 class="text-xl font-bold text-white mb-1">Probe Console</h2>
+    <p class="text-sm text-zinc-500 mb-5">Submit a target URL to <code class="font-mono text-zinc-400">POST /v1/probe</code> and watch a fresh trust score land below.</p>
+
+    <form id="probeForm" class="flex flex-col sm:flex-row gap-3">
+      <input id="targetUrl" type="url" required placeholder="https://api.some-agent-service.com/v1/endpoint"
+        class="flex-1 bg-[#0d0d0f] border border-zinc-700 focus:border-amber outline-none rounded-lg px-4 py-3 font-mono text-sm text-zinc-200 placeholder-zinc-600 transition-colors">
+      <button type="submit" id="probeBtn"
+        class="shrink-0 inline-flex items-center justify-center gap-2 bg-amber hover:bg-amber/90 text-black font-semibold rounded-lg px-6 py-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+        <svg id="probeSpinner" class="hidden w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+        <span id="probeBtnLabel">Probe Now</span>
+      </button>
+    </form>
+    <p id="probeError" class="hidden mt-3 text-sm text-red-400 font-mono"></p>
+
+    <div id="probeResultWrap" class="hidden mt-6">
+      <p class="text-xs font-mono text-zinc-500 mb-3">// probe result</p>
+      <div id="probeResult" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+    </div>
+  </div>
+</section>
+
+<footer class="border-t border-zinc-800/80 py-8">
+  <div class="max-w-6xl mx-auto px-6 text-xs text-zinc-600 font-mono flex flex-wrap items-center justify-between gap-2">
+    <span>beacon.sh — trust infrastructure for the agentic web</span>
+    <span>verified_by: beacon-avs-v2</span>
+  </div>
+</footer>
+
+<!-- ============ ESCROW MODAL ============ -->
+<div id="escrowModal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4">
+  <div id="escrowOverlay" class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+  <div class="relative bg-[#0d0d0f] border border-zinc-700 rounded-xl max-w-sm w-full p-7 text-center animate-fadein shadow-2xl">
+    <div id="escrowIcon" class="mx-auto mb-4 w-14 h-14 rounded-full flex items-center justify-center text-2xl"></div>
+    <h3 id="escrowTitle" class="text-lg font-bold text-white mb-2"></h3>
+    <p id="escrowSubtitle" class="text-sm text-zinc-400 mb-6 font-mono"></p>
+    <button id="escrowClose" class="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold rounded-lg py-2.5 transition-colors">Close</button>
+  </div>
+</div>
+
+<script>
+/* ---------------------------------------------------------------------- */
+/* Config                                                                  */
+/* ---------------------------------------------------------------------- */
+const PROBE_ENGINE_URL = 'http://localhost:8000';
+const LEDGER_API_URL = 'http://localhost:8001';
+const ATTESTATION_URL = 'http://localhost:8002';
+const ESCROW_GATE_URL = 'http://localhost:8003';
+
+const SCORES_API = `${LEDGER_API_URL}/v1/scores`;
+const PROBE_API   = `${PROBE_ENGINE_URL}/v1/probe`;
+const ESCROW_API  = `${ESCROW_GATE_URL}/v1/escrow/validate`;
+
+const HEALTH_SERVICES = [
+  { name: 'probe_engine', url: `${PROBE_ENGINE_URL}/health` },
+  { name: 'ledger_api', url: `${LEDGER_API_URL}/health` },
+  { name: 'attestation', url: `${ATTESTATION_URL}/health` },
+  { name: 'escrow_gate', url: `${ESCROW_GATE_URL}/health` },
+];
+
+async function loadHealth() {
+  const container = document.getElementById('healthPanel');
+  if (!container) return;
+  const results = await Promise.all(HEALTH_SERVICES.map(async (svc) => {
+    try {
+      const res = await fetch(svc.url);
+      return { ...svc, ok: res.ok };
+    } catch (e) {
+      return { ...svc, ok: false };
+    }
+  }));
+  container.innerHTML = results.map(r => `
+    <div class="flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full ${r.ok ? 'bg-green-400 animate-pulseGlow' : 'bg-red-500'}"></span>
+      <span class="text-xs font-mono text-zinc-400">${r.name}</span>
+    </div>
+  `).join('');
+}
+
+/* ---------------------------------------------------------------------- */
+/* Hardcoded seed data — keeps the page populated if the APIs are down    */
+/* ---------------------------------------------------------------------- */
+const seed_scores = [
+  {
+    endpoint: "https://api.weather-ai.com/v1/forecast",
+    trust_score: 94,
+    grade: "A",
+    accuracy: 0.97,
+    uptime_pct: 99.91,
+    latency_p99_ms: 180,
+    dispute_rate: 0.001,
+    scam_flag: false,
+    sample_size: 142830,
+    verified_by: "beacon-avs-v2",
+    attested_at: "2026-06-29T18:42:11.203Z",
+    attestation: "0x7f3a9c21e8b4d610",
+    escrow_recommendation: "PASS",
+  },
+  {
+    endpoint: "https://api.tradebot-x.io/v2/quote",
+    trust_score: 62,
+    grade: "D",
+    accuracy: 0.69,
+    uptime_pct: 96.84,
+    latency_p99_ms: 940,
+    dispute_rate: 0.046,
+    scam_flag: false,
+    sample_size: 5310,
+    verified_by: "beacon-avs-v2",
+    attested_at: "2026-06-29T14:05:52.880Z",
+    attestation: "0x1c5e7790adf23bb1",
+    escrow_recommendation: "HOLD",
+  },
+  {
+    endpoint: "https://api.scamcoin-signals.net/v1/predict",
+    trust_score: 43,
+    grade: "F",
+    accuracy: 0.31,
+    uptime_pct: 88.05,
+    latency_p99_ms: 2640,
+    dispute_rate: 0.21,
+    scam_flag: true,
+    sample_size: 1208,
+    verified_by: "beacon-avs-v2",
+    attested_at: "2026-06-29T09:11:30.447Z",
+    attestation: "0x9d402f18cc6a05e4",
+    escrow_recommendation: "BLOCK",
+  },
+];
+
+/* ---------------------------------------------------------------------- */
+/* Terminal hero typing animation                                         */
+/* ---------------------------------------------------------------------- */
+const heroJson = {
+  endpoint: "https://api.weather-ai.com/v1/forecast",
+  trust_score: 94,
+  grade: "A",
+  accuracy: 0.97,
+  uptime_pct: 99.91,
+  latency_p99_ms: 180,
+  dispute_rate: 0.001,
+  scam_flag: false,
+  sample_size: 142830,
+  verified_by: "beacon-avs-v2",
+  attested_at: "2026-06-30T08:14:02.119Z",
+  attestation: "0x7f3a9c21e8b4d610",
+  escrow_recommendation: "PASS",
+};
+
+function highlightJson(obj) {
+  const json = JSON.stringify(obj, null, 2);
+  return json
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"([^"]+)":/g, '<span class="json-punc">"</span><span class="json-key">$1</span><span class="json-punc">":</span>')
+    .replace(/: "([^"]*)"/g, ': <span class="json-punc">"</span><span class="json-str">$1</span><span class="json-punc">"</span>')
+    .replace(/: (true|false)/g, ': <span class="json-bool">$1</span>')
+    .replace(/: (-?\d+\.?\d*)/g, ': <span class="json-num">$1</span>');
+}
+
+function typeText(el, text, speed = 22) {
+  return new Promise(resolve => {
+    let i = 0;
+    el.textContent = '';
+    const cursor = document.createElement('span');
+    cursor.className = 'inline-block w-2 h-4 bg-amber ml-0.5 animate-blink align-middle';
+    function step() {
+      if (i <= text.length) {
+        el.textContent = text.slice(0, i);
+        el.appendChild(cursor);
+        i++;
+        setTimeout(step, speed);
+      } else {
+        cursor.remove();
+        resolve();
+      }
+    }
+    step();
+  });
+}
+
+async function runHeroAnimation() {
+  const typeLine = document.getElementById('typeLine');
+  const statusLine = document.getElementById('statusLine');
+  const jsonBlock = document.getElementById('jsonBlock');
+  const verifiedLine = document.getElementById('verifiedLine');
+
+  await typeText(typeLine, '$ GET https://api.beacon.sh/v1/score/{endpoint}');
+  await new Promise(r => setTimeout(r, 250));
+
+  statusLine.textContent = '200 OK  48ms';
+  statusLine.classList.remove('opacity-0');
+
+  await new Promise(r => setTimeout(r, 200));
+  jsonBlock.innerHTML = highlightJson(heroJson);
+  jsonBlock.classList.remove('opacity-0');
+
+  await new Promise(r => setTimeout(r, 250));
+  verifiedLine.classList.remove('opacity-0');
+}
+
+/* ---------------------------------------------------------------------- */
+/* Scoreboard rendering                                                   */
+/* ---------------------------------------------------------------------- */
+const gradeColors = {
+  A: { text: 'text-green-400', ring: 'ring-green-400/30', bg: 'bg-green-400/10' },
+  B: { text: 'text-lime-400', ring: 'ring-lime-400/30', bg: 'bg-lime-400/10' },
+  C: { text: 'text-yellow-400', ring: 'ring-yellow-400/30', bg: 'bg-yellow-400/10' },
+  D: { text: 'text-orange-400', ring: 'ring-orange-400/30', bg: 'bg-orange-400/10' },
+  F: { text: 'text-red-500', ring: 'ring-red-500/30', bg: 'bg-red-500/10' },
+};
+
+const escrowBadgeColors = {
+  PASS: 'bg-green-400/10 text-green-400 border-green-400/30',
+  HOLD: 'bg-yellow-400/10 text-yellow-400 border-yellow-400/30',
+  BLOCK: 'bg-red-500/10 text-red-500 border-red-500/30',
+};
+
+function hostnameOf(url) {
+  try { return new URL(url).hostname; } catch { return url; }
+}
+
+function fmtDate(iso) {
+  try {
+    const d = new Date(iso);
+    return d.toISOString().replace('T', ' ').slice(0, 19) + 'Z';
+  } catch { return iso; }
+}
+
+function escrowRecommendationFor(trustScore) {
+  if (trustScore >= 70) return 'PASS';
+  if (trustScore >= 50) return 'HOLD';
+  return 'BLOCK';
+}
+
+function scoreCardHTML(score, idx) {
+  const g = gradeColors[score.grade] || gradeColors.F;
+  const escrowRecommendation = score.escrow_recommendation || escrowRecommendationFor(score.trust_score);
+  const escrowClass = escrowBadgeColors[escrowRecommendation] || escrowBadgeColors.HOLD;
+  const cardId = `card-${idx}-${Math.random().toString(36).slice(2, 8)}`;
+
+  return `
+  <div class="group relative rounded-xl border border-zinc-800 bg-zinc-900/40 hover:border-zinc-700 p-5 flex flex-col gap-4 animate-fadein transition-colors" data-endpoint="${escapeHtml(score.endpoint)}" data-trust-score="${score.trust_score}" id="${cardId}">
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <p class="font-mono text-sm text-zinc-300 truncate" title="${escapeHtml(score.endpoint)}">${escapeHtml(hostnameOf(score.endpoint))}</p>
+        ${score.scam_flag ? '<span class="inline-block mt-1 text-[10px] font-mono uppercase tracking-wide text-red-400 bg-red-500/10 border border-red-500/30 rounded px-1.5 py-0.5">scam flagged</span>' : ''}
+      </div>
+      <div class="shrink-0 w-12 h-12 rounded-lg ${g.bg} ring-1 ${g.ring} flex items-center justify-center">
+        <span class="text-2xl font-extrabold ${g.text} grade-glow animate-pulseGlow">${score.grade}</span>
+      </div>
+    </div>
+
+    <div class="flex items-end gap-2">
+      <span class="text-4xl font-extrabold text-white font-mono">${score.trust_score}</span>
+      <span class="text-zinc-500 text-sm mb-1">/ 100</span>
+    </div>
+
+    <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px] font-mono text-zinc-500">
+      <div>uptime <span class="text-zinc-300">${score.uptime_pct}%</span></div>
+      <div>p99 <span class="text-zinc-300">${score.latency_p99_ms}ms</span></div>
+      <div>disputes <span class="text-zinc-300">${(score.dispute_rate * 100).toFixed(1)}%</span></div>
+      <div>n <span class="text-zinc-300">${score.sample_size.toLocaleString()}</span></div>
+      <div class="col-span-2">verified_by <span class="text-cyan">${score.verified_by}</span></div>
+      <div class="col-span-2 truncate" title="${escapeHtml(score.attested_at)}">attested <span class="text-zinc-300">${fmtDate(score.attested_at)}</span></div>
+      <div class="col-span-2 truncate" title="${escapeHtml(score.attestation)}">attestation <span class="text-amber">${score.attestation}</span></div>
+    </div>
+
+    <div class="flex items-center justify-between gap-2 pt-2 border-t border-zinc-800">
+      <span class="text-[11px] font-mono uppercase tracking-wide border rounded px-2 py-1 ${escrowClass}">${escrowRecommendation}</span>
+      <button class="pay-btn inline-flex items-center gap-1.5 bg-zinc-800 hover:bg-amber hover:text-black text-zinc-200 text-xs font-semibold rounded-lg px-3 py-1.5 transition-colors">Pay $50</button>
+    </div>
+  </div>`;
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+function renderCards(container, scores) {
+  container.innerHTML = scores.map((s, i) => scoreCardHTML(s, i)).join('');
+  container.querySelectorAll('.pay-btn').forEach(btn => {
+    btn.addEventListener('click', () => onPayClick(btn));
+  });
+}
+
+async function loadScoreboard() {
+  const container = document.getElementById('scoreCards');
+  const status = document.getElementById('scoreboardStatus');
+  status.textContent = 'fetching…';
+  try {
+    const res = await fetch(SCORES_API);
+    if (!res.ok) throw new Error('bad status');
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) throw new Error('empty');
+    renderCards(container, data);
+    status.textContent = `live · ${data.length} endpoints`;
+    status.classList.add('text-green-400');
+  } catch (e) {
+    renderCards(container, seed_scores);
+    status.textContent = 'offline · showing seed data';
+    status.classList.add('text-zinc-600');
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Probe console                                                          */
+/* ---------------------------------------------------------------------- */
+const probeForm = document.getElementById('probeForm');
+const probeBtn = document.getElementById('probeBtn');
+const probeSpinner = document.getElementById('probeSpinner');
+const probeBtnLabel = document.getElementById('probeBtnLabel');
+const probeError = document.getElementById('probeError');
+const probeResultWrap = document.getElementById('probeResultWrap');
+const probeResult = document.getElementById('probeResult');
+
+function simulateProbeResult(targetUrl) {
+  const trust_score = Math.floor(35 + Math.random() * 60);
+  const grade = trust_score >= 90 ? 'A' : trust_score >= 80 ? 'B' : trust_score >= 70 ? 'C' : trust_score >= 60 ? 'D' : 'F';
+  const now = new Date().toISOString();
+  return {
+    endpoint: targetUrl,
+    trust_score,
+    grade,
+    accuracy: Math.round((trust_score / 100) * 0.9 * 100) / 100,
+    uptime_pct: Math.round((97 + Math.random() * 2.9) * 100) / 100,
+    latency_p99_ms: Math.floor(150 + Math.random() * 900),
+    dispute_rate: Math.round(Math.random() * 0.05 * 1000) / 1000,
+    scam_flag: trust_score < 45 && Math.random() > 0.5,
+    sample_size: 1,
+    verified_by: 'beacon-avs-v2',
+    attested_at: now,
+    attestation: '0x' + Math.random().toString(16).slice(2, 18).padEnd(16, '0'),
+    escrow_recommendation: trust_score >= 70 ? 'PASS' : trust_score >= 50 ? 'HOLD' : 'BLOCK',
+  };
+}
+
+function isValidProbeUrl(value) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  return url.protocol === 'http:' || url.protocol === 'https:';
+}
+
+probeForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const targetUrl = document.getElementById('targetUrl').value.trim();
+  if (!targetUrl) return;
+
+  if (!isValidProbeUrl(targetUrl)) {
+    probeError.textContent = 'Enter a valid http:// or https:// URL.';
+    probeError.classList.remove('hidden');
+    return;
+  }
+
+  probeError.classList.add('hidden');
+  probeBtn.disabled = true;
+  probeSpinner.classList.remove('hidden');
+  probeBtnLabel.textContent = 'Probing…';
+
+  let result;
+  try {
+    const res = await fetch(PROBE_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        target_url: targetUrl,
+        task_description: 'Hackathon demo probe',
+        payload: {},
+        ground_truth: '',
+        spend_amount_cents: 1,
+      }),
+    });
+    if (!res.ok) throw new Error('probe failed');
+    result = await res.json();
+  } catch (e) {
+    await new Promise(r => setTimeout(r, 900));
+    result = simulateProbeResult(targetUrl);
+  }
+
+  probeResultWrap.classList.remove('hidden');
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = scoreCardHTML(result, Date.now());
+  const card = wrapper.firstElementChild;
+  probeResult.prepend(card);
+  card.querySelector('.pay-btn').addEventListener('click', () => onPayClick(card.querySelector('.pay-btn')));
+
+  probeBtn.disabled = false;
+  probeSpinner.classList.add('hidden');
+  probeBtnLabel.textContent = 'Probe Now';
+  probeForm.reset();
+});
+
+/* ---------------------------------------------------------------------- */
+/* Escrow simulator                                                       */
+/* ---------------------------------------------------------------------- */
+const escrowModal = document.getElementById('escrowModal');
+const escrowOverlay = document.getElementById('escrowOverlay');
+const escrowIcon = document.getElementById('escrowIcon');
+const escrowTitle = document.getElementById('escrowTitle');
+const escrowSubtitle = document.getElementById('escrowSubtitle');
+const escrowClose = document.getElementById('escrowClose');
+
+function showEscrowModal(pass, reason) {
+  if (pass) {
+    escrowIcon.className = 'mx-auto mb-4 w-14 h-14 rounded-full flex items-center justify-center text-2xl bg-green-400/10 text-green-400 ring-1 ring-green-400/30';
+    escrowIcon.textContent = '✓';
+    escrowTitle.textContent = 'Payment Released';
+    escrowSubtitle.textContent = 'Released. Beacon fee: $0.25';
+  } else {
+    escrowIcon.className = 'mx-auto mb-4 w-14 h-14 rounded-full flex items-center justify-center text-2xl bg-red-500/10 text-red-500 ring-1 ring-red-500/30';
+    escrowIcon.textContent = '✕';
+    escrowTitle.textContent = 'Payment Blocked';
+    escrowSubtitle.textContent = reason || 'Blocked: trust_score too low';
+  }
+  escrowModal.classList.remove('hidden');
+}
+
+function hideEscrowModal() {
+  escrowModal.classList.add('hidden');
+}
+
+escrowClose.addEventListener('click', hideEscrowModal);
+escrowOverlay.addEventListener('click', hideEscrowModal);
+
+async function onPayClick(btn) {
+  const card = btn.closest('[data-endpoint]');
+  const endpoint = card.dataset.endpoint;
+  const trustScore = Number(card.dataset.trustScore);
+  const endpointId = hostnameOf(endpoint).replace(/\./g, '-');
+
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = 'Validating…';
+
+  try {
+    const res = await fetch(ESCROW_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoint_id: endpointId, payment_amount_cents: 5000 }),
+    });
+    if (!res.ok) throw new Error('escrow rejected');
+    const data = await res.json();
+    showEscrowModal(data.decision === 'PASS' || data.released === true, data.reason);
+  } catch (e) {
+    showEscrowModal(trustScore >= 70, 'Blocked: trust_score too low');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Boot                                                                    */
+/* ---------------------------------------------------------------------- */
+runHeroAnimation();
+loadScoreboard();
+loadHealth();
+setInterval(loadHealth, 10000);
+</script>
+</body>
+</html>
