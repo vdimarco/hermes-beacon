@@ -23,7 +23,7 @@ returned 503/connection errors from this environment):
 
 Usage:
   python scripts/seed_real_probes.py                 # probes http://localhost:8080
-  BASE_URL=https://hermes-beacon.fly.dev python scripts/seed_real_probes.py
+  BASE_URL=https://hermes.beacons.fyi python scripts/seed_real_probes.py
 """
 import os
 import sys

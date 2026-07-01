@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Beacon Agent Harness — Credit Scores for APIs</title>
+<title>Beacon — beacons.fyi | Credit Scores for APIs</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
@@ -242,9 +242,17 @@
 </section>
 
 <footer class="border-t border-zinc-800/80 py-8">
-  <div class="max-w-6xl mx-auto px-6 text-xs text-zinc-600 font-mono flex flex-wrap items-center justify-between gap-2">
-    <span>beacon — trust infrastructure for the agentic web</span>
-    <span>orchestrated_by: hermes · scored_by: nemotron-3-ultra · verified_by: beacon-avs-v2 · payments_by: stripe-skills</span>
+  <div class="max-w-6xl mx-auto px-6 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex flex-wrap items-center gap-4 text-xs font-mono text-zinc-500">
+      <a href="mailto:v@ug.hn" class="hover:text-amber transition-colors">v@ug.hn</a>
+      <a href="https://github.com/vdimarco/hermes-beacon" target="_blank" rel="noopener" class="hover:text-amber transition-colors">GitHub</a>
+    </div>
+    <div class="flex flex-wrap items-center gap-3 text-[11px] font-mono uppercase tracking-wide text-zinc-600">
+      <span class="px-2 py-1 rounded border border-zinc-800">Hermes</span>
+      <span class="px-2 py-1 rounded border border-zinc-800">Stripe</span>
+      <span class="px-2 py-1 rounded border border-zinc-800">Blockrun</span>
+      <span class="px-2 py-1 rounded border border-zinc-800">NVIDIA NIM</span>
+    </div>
   </div>
 </footer>
 
@@ -813,6 +821,11 @@ function renderSimStep() {
           <p class="sm:col-span-2">Evaluator: <span class="text-green-400">nemotron-3-ultra</span> (score: ${SIM_SCORE})</p>
         </div>
       </div>
+      <div class="rounded-lg border border-cyan/30 bg-cyan/5 px-5 py-4 mb-6">
+        <p class="text-cyan font-mono text-sm mb-2">x402 handshake complete — Blockrun settled USDC on Base</p>
+        <p class="text-xs font-mono text-zinc-400 break-all">tx: <span class="text-zinc-200">0x7f8c9d2e1b4a6f5e3d2c1b0a9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e</span></p>
+        <p class="text-[11px] font-mono text-zinc-500 mt-1">Settled on Base (EIP-155:8453)</p>
+      </div>
       <div class="flex flex-wrap gap-3">
         <a href="${STRIPE_DASHBOARD_URL}" target="_blank" rel="noopener" class="inline-flex items-center bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold rounded-lg px-5 py-3 transition-colors">View Stripe Receipt</a>
         <button id="simRestart" class="bg-amber hover:bg-amber/90 text-black font-semibold rounded-lg px-5 py-3 transition-colors">Run Again</button>
@@ -885,18 +898,17 @@ async function runHeroAnimation() {
 /* Scoreboard rendering (probe console tab)                               */
 /* ---------------------------------------------------------------------- */
 const gradeColors = {
+  'A+': { text: 'text-green-400', ring: 'ring-green-400/30', bg: 'bg-green-400/10' },
   A: { text: 'text-green-400', ring: 'ring-green-400/30', bg: 'bg-green-400/10' },
   B: { text: 'text-lime-400', ring: 'ring-lime-400/30', bg: 'bg-lime-400/10' },
   C: { text: 'text-yellow-400', ring: 'ring-yellow-400/30', bg: 'bg-yellow-400/10' },
   D: { text: 'text-orange-400', ring: 'ring-orange-400/30', bg: 'bg-orange-400/10' },
   F: { text: 'text-red-500', ring: 'ring-red-500/30', bg: 'bg-red-500/10' },
+  ERR: { text: 'text-red-500', ring: 'ring-red-500/30', bg: 'bg-red-500/10' },
 };
 
-const escrowBadgeColors = {
-  PASS: 'bg-green-400/10 text-green-400 border-green-400/30',
-  HOLD: 'bg-yellow-400/10 text-yellow-400 border-yellow-400/30',
-  BLOCK: 'bg-red-500/10 text-red-500 border-red-500/30',
-};
+const CRITICAL_STATUSES = ['error', 'CRITICAL_FAILURE'];
+const RED_BADGE_CLASS = 'bg-red-500/10 text-red-500 border-red-500/30';
 
 function hostnameOf(url) {
   try { return new URL(url).hostname; } catch { return url; }
@@ -909,16 +921,62 @@ function fmtDate(iso) {
   } catch { return iso; }
 }
 
-function escrowRecommendationFor(trustScore) {
-  if (trustScore >= 70) return 'PASS';
-  if (trustScore >= 50) return 'HOLD';
-  return 'BLOCK';
+/* Single source of truth for how a probe result renders: infrastructure
+   failures and malicious/honeypot-grade scores never show a numeric score
+   or an enabled Pay button, no matter which grade/escrow fields the caller
+   also sent. */
+function classifyScore(score) {
+  if (CRITICAL_STATUSES.includes(score.status)) {
+    return {
+      grade: 'ERR',
+      showScore: false,
+      reason: score.status === 'CRITICAL_FAILURE' ? 'Host unreachable — infrastructure failure' : 'Endpoint returned a server error',
+      badgeLabel: score.status === 'CRITICAL_FAILURE' ? 'OFFLINE' : 'ERROR',
+      badgeClass: RED_BADGE_CLASS,
+      blink: true,
+      payEnabled: false,
+      payLabel: 'Gateway Closed',
+    };
+  }
+  if (typeof score.trust_score === 'number' && score.trust_score < 20) {
+    return {
+      grade: 'F',
+      showScore: false,
+      reason: 'Malicious signals detected — score withheld',
+      badgeLabel: 'MALICIOUS',
+      badgeClass: RED_BADGE_CLASS,
+      blink: true,
+      payEnabled: false,
+      payLabel: 'Blocked',
+    };
+  }
+  const s = score.trust_score;
+  let badgeLabel, badgeClass;
+  if (s >= 70) {
+    badgeLabel = 'VERIFIED';
+    badgeClass = 'bg-green-400/10 text-green-400 border-green-400/30';
+  } else if (s >= 50) {
+    badgeLabel = 'RISKY';
+    badgeClass = 'bg-yellow-400/10 text-yellow-400 border-yellow-400/30';
+  } else {
+    badgeLabel = 'BLOCKED';
+    badgeClass = RED_BADGE_CLASS;
+  }
+  return {
+    grade: score.grade || 'F',
+    showScore: true,
+    reason: null,
+    badgeLabel,
+    badgeClass,
+    blink: false,
+    payEnabled: s >= 70,
+    payLabel: s >= 70 ? 'Pay $50' : 'Blocked',
+  };
 }
 
 function scoreCardHTML(score, idx) {
-  const g = gradeColors[score.grade] || gradeColors.F;
-  const escrowRecommendation = score.escrow_recommendation || escrowRecommendationFor(score.trust_score);
-  const escrowClass = escrowBadgeColors[escrowRecommendation] || escrowBadgeColors.HOLD;
+  const c = classifyScore(score);
+  const g = gradeColors[c.grade] || gradeColors.F;
   const cardId = `card-${idx}-${Math.random().toString(36).slice(2, 8)}`;
 
   return `
@@ -927,17 +985,18 @@ function scoreCardHTML(score, idx) {
       <div class="min-w-0">
         <p class="font-mono text-sm text-zinc-300 truncate" title="${escapeHtml(score.endpoint)}">${escapeHtml(hostnameOf(score.endpoint))}</p>
         ${score.synthetic ? '<span class="inline-block mt-1 text-[10px] font-mono uppercase tracking-wide text-zinc-400 bg-zinc-500/10 border border-zinc-500/30 rounded px-1.5 py-0.5" title="Sample data only">sample data</span>' : ''}
-        ${score.scam_flag ? '<span class="inline-block mt-1 ml-1 text-[10px] font-mono uppercase tracking-wide text-red-400 bg-red-500/10 border border-red-500/30 rounded px-1.5 py-0.5">scam flagged</span>' : ''}
       </div>
       <div class="shrink-0 w-12 h-12 rounded-lg ${g.bg} ring-1 ${g.ring} flex items-center justify-center">
-        <span class="text-2xl font-extrabold ${g.text} grade-glow animate-pulseGlow">${score.grade}</span>
+        <span class="text-2xl font-extrabold ${g.text} grade-glow animate-pulseGlow">${c.grade}</span>
       </div>
     </div>
 
     <div class="flex items-end gap-2">
-      <span class="text-4xl font-extrabold text-white font-mono">${score.trust_score}</span>
-      <span class="text-zinc-500 text-sm mb-1">/ 100</span>
+      ${c.showScore
+        ? `<span class="text-4xl font-extrabold text-white font-mono">${score.trust_score}</span><span class="text-zinc-500 text-sm mb-1">/ 100</span>`
+        : `<span class="text-2xl font-extrabold text-red-500 font-mono">— / 100</span>`}
     </div>
+    ${c.reason ? `<p class="-mt-3 text-[11px] font-mono text-red-400">${escapeHtml(c.reason)}</p>` : ''}
 
     <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px] font-mono text-zinc-500">
       <div>uptime <span class="text-zinc-300">${score.uptime_pct.toFixed ? score.uptime_pct.toFixed(2) : score.uptime_pct}%</span></div>
@@ -950,33 +1009,31 @@ function scoreCardHTML(score, idx) {
       <div class="col-span-2">evaluator <span class="${score.evaluator === 'nemotron-3-ultra' ? 'text-green-400' : 'text-zinc-500'}">${escapeHtml(score.evaluator || 'nemotron-3-ultra')}</span></div>
     </div>
 
-    ${escrowRecommendation === 'PASS' ? '<p class="text-[10px] font-mono text-cyan/80">Hermes agent → Stripe Skills</p>' : ''}
+    ${c.payEnabled ? '<p class="text-[10px] font-mono text-cyan/80">Hermes agent → Stripe Skills</p>' : ''}
 
     <div class="flex items-center justify-between gap-2 pt-2 border-t border-zinc-800">
-      <span class="text-[11px] font-mono uppercase tracking-wide border rounded px-2 py-1 ${escrowClass}" title="Escrow status">${escrowRecommendation}</span>
-      <button class="pay-btn inline-flex items-center gap-1.5 bg-zinc-800 hover:bg-amber hover:text-black text-zinc-200 text-xs font-semibold rounded-lg px-3 py-1.5 transition-colors">Pay $50</button>
+      <span class="text-[11px] font-mono uppercase tracking-wide border rounded px-2 py-1 ${c.badgeClass} ${c.blink ? 'animate-blink' : ''}" title="Escrow status">${c.badgeLabel}</span>
+      <button class="pay-btn inline-flex items-center gap-1.5 bg-zinc-800 hover:bg-amber hover:text-black text-zinc-200 text-xs font-semibold rounded-lg px-3 py-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-zinc-800 disabled:hover:text-zinc-200" ${c.payEnabled ? '' : 'disabled'}>${c.payLabel}</button>
     </div>
   </div>`;
 }
 
 function scoreListRowHTML(score, idx) {
-  const g = gradeColors[score.grade] || gradeColors.F;
-  const escrowRecommendation = score.escrow_recommendation || escrowRecommendationFor(score.trust_score);
-  const escrowClass = escrowBadgeColors[escrowRecommendation] || escrowBadgeColors.HOLD;
+  const c = classifyScore(score);
+  const g = gradeColors[c.grade] || gradeColors.F;
   const rowId = `row-${idx}-${Math.random().toString(36).slice(2, 8)}`;
 
   return `
   <div class="flex items-center gap-3 sm:gap-4 px-4 py-2.5 bg-zinc-900/40 hover:bg-zinc-900/70 animate-fadein transition-colors" data-endpoint="${escapeHtml(score.endpoint)}" data-trust-score="${score.trust_score}" id="${rowId}">
-    <span class="shrink-0 w-7 h-7 rounded ${g.bg} ring-1 ${g.ring} flex items-center justify-center text-xs font-extrabold ${g.text}">${score.grade}</span>
+    <span class="shrink-0 w-7 h-7 rounded ${g.bg} ring-1 ${g.ring} flex items-center justify-center text-xs font-extrabold ${g.text}">${c.grade}</span>
     <span class="font-mono text-sm text-zinc-300 truncate flex-1 min-w-0" title="${escapeHtml(score.endpoint)}">${escapeHtml(hostnameOf(score.endpoint))}</span>
     ${score.synthetic ? '<span class="hidden sm:inline-block shrink-0 text-[10px] font-mono uppercase tracking-wide text-zinc-400 bg-zinc-500/10 border border-zinc-500/30 rounded px-1.5 py-0.5" title="Sample data only">sample</span>' : ''}
-    ${score.scam_flag ? '<span class="hidden sm:inline-block shrink-0 text-[10px] font-mono uppercase tracking-wide text-red-400 bg-red-500/10 border border-red-500/30 rounded px-1.5 py-0.5">scam</span>' : ''}
-    <span class="shrink-0 font-mono text-sm text-white font-bold w-10 text-right">${score.trust_score}</span>
+    <span class="shrink-0 font-mono text-sm text-white font-bold w-14 text-right">${c.showScore ? score.trust_score : '—'}</span>
     <span class="hidden sm:block shrink-0 font-mono text-[11px] text-zinc-500 w-16 text-right">${score.uptime_pct.toFixed ? score.uptime_pct.toFixed(2) : score.uptime_pct}%</span>
     <span class="hidden md:block shrink-0 font-mono text-[11px] text-zinc-500 w-20 text-right">${score.latency_p99_ms}ms</span>
     <span class="hidden lg:block shrink-0 font-mono text-[10px] w-28 text-right truncate ${score.evaluator === 'nemotron-3-ultra' ? 'text-green-400' : 'text-zinc-500'}" title="evaluator">${escapeHtml(score.evaluator || 'nemotron-3-ultra')}</span>
-    <span class="shrink-0 text-[10px] font-mono uppercase tracking-wide border rounded px-1.5 py-0.5 w-14 text-center ${escrowClass}" title="Escrow status">${escrowRecommendation}</span>
-    <button class="pay-btn shrink-0 inline-flex items-center gap-1.5 bg-zinc-800 hover:bg-amber hover:text-black text-zinc-200 text-xs font-semibold rounded-lg px-3 py-1.5 transition-colors">Pay $50</button>
+    <span class="shrink-0 text-[10px] font-mono uppercase tracking-wide border rounded px-1.5 py-0.5 w-16 text-center ${c.badgeClass} ${c.blink ? 'animate-blink' : ''}" title="Escrow status">${c.badgeLabel}</span>
+    <button class="pay-btn shrink-0 inline-flex items-center gap-1.5 bg-zinc-800 hover:bg-amber hover:text-black text-zinc-200 text-xs font-semibold rounded-lg px-3 py-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-zinc-800 disabled:hover:text-zinc-200" ${c.payEnabled ? '' : 'disabled'}>${c.payLabel}</button>
   </div>`;
 }
 
@@ -1074,6 +1131,7 @@ const probeResult = document.getElementById('probeResult');
 const PROBE_SUGGESTED_URLS = [
   'https://api.stripe.com/v1',
   'https://inference-api.nousresearch.com/v1/models',
+  'https://integrate.api.nvidia.com/v1/chat/completions',
   'https://api.github.com/zen',
   'https://httpbin.org/get',
   'https://jsonplaceholder.typicode.com/posts/1',
