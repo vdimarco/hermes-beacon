@@ -149,7 +149,7 @@
 <!-- ============ TAB 2: SIMULATE PURCHASE ============ -->
 <section id="tab-simulate" class="tab-panel max-w-6xl mx-auto px-6 py-10">
   <h2 class="text-xl font-bold text-white">Simulate Agent Purchase</h2>
-  <p class="text-sm text-zinc-500 mt-1 max-w-2xl">Watch how a Hermes agent discovers, probes, and pays for NemoClaw GPU time.</p>
+  <p class="text-sm text-zinc-500 mt-1 max-w-2xl">Watch how a Hermes agent discovers, probes, and pays for NIM inference on NemoClaw — via Stripe Skills escrow by default, or switch to Blockrun x402 for agent-native micropayments.</p>
 
   <!-- Step indicator -->
   <div class="mt-6 flex items-center justify-between text-xs font-mono text-zinc-500" id="stepLabel"></div>
@@ -231,7 +231,7 @@
       </div>
       <div>
         <p class="font-mono text-cyan font-semibold mb-1">Stripe Skills for Hermes</p>
-        <p class="text-zinc-400">the payment primitives. Real test-mode PaymentIntents with manual capture. The escrow gate blocks bad endpoints entirely — verify in the Stripe test dashboard.</p>
+        <p class="text-zinc-400">dual-rail payments: Stripe PaymentIntents (high-value escrow) or Blockrun x402 (agent-native micropayments). Real test-mode PaymentIntents with manual capture, or gasless EIP-3009 USDC settlement on Base Sepolia. The escrow gate blocks bad endpoints entirely, on either rail.</p>
       </div>
       <div>
         <p class="font-mono text-green-400 font-semibold mb-1">NVIDIA Nemotron 3 Ultra</p>
@@ -289,7 +289,10 @@ const PROBE_API   = '/api/probe/v1/probe';
 const ESCROW_API  = '/api/escrow/v1/escrow/validate';
 const ESCROW_EXECUTE_API = '/api/escrow/v1/escrow/execute';
 const STRIPE_DASHBOARD_URL = 'https://dashboard.stripe.com/test/payments';
+const BASESCAN_SEPOLIA_URL = 'https://sepolia.basescan.org';
 const TRUST_THRESHOLD = 70;
+const STRIPE_PI_ID = 'pi_3Oxxxxx_test';
+const X402_TX_HASH = '0x7f8c9d2e1b4a6f5e3d2c1b0a9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e';
 
 const HEALTH_SERVICES = [
   { name: 'probe_engine', url: '/api/probe/health' },
@@ -676,7 +679,8 @@ function typeLines(el, lines, speed = 14) {
 /* ---------------------------------------------------------------------- */
 let simStep = 1;
 let simProbeResult = null; // populated by the real /v1/probe call made in step 2
-const SIM_STEPS = ['Agent Intent', 'Beacon Probe', 'Escrow Gate', 'Sandbox', 'Complete'];
+let simRail = 'stripe'; // 'stripe' | 'x402' — payment rail chosen at Step C
+const SIM_STEPS = ['Agent Intent', 'Beacon Probe', 'Payment', 'Execution', 'Receipt'];
 
 function renderStepIndicator() {
   document.getElementById('stepLabel').innerHTML = `<span>Step ${simStep} of ${SIM_STEPS.length}</span><span class="text-zinc-300">${SIM_STEPS[simStep - 1]}</span>`;
@@ -718,12 +722,12 @@ function renderSimStep() {
   if (simStep === 1) {
     content.innerHTML = `
       <h3 class="text-lg font-bold text-white mb-1">Agent Intent</h3>
-      <p class="text-sm text-zinc-400 mb-5">Hermes-1 wants to provision NVIDIA GPU inference access before handing the job to NemoClaw.</p>
+      <p class="text-sm text-zinc-400 mb-5">Hermes-1 wants to run inference on NVIDIA NIM, deployed via NemoClaw.</p>
       <div class="space-y-2 text-sm text-zinc-300 mb-6 font-mono">
         <p>Agent ID: <span class="text-cyan">hermes-1</span></p>
         <p>Target Service: <span class="text-zinc-200">NVIDIA NIM inference gateway</span></p>
-        <p>Action: <span class="text-zinc-200">Verify trust, then provision GPU instance (A100, 1hr) via NemoClaw</span></p>
-        <p>Estimated Cost: <span class="text-amber">$12.50</span></p>
+        <p>Action: <span class="text-zinc-200">Verify trust, then run inference via NemoClaw</span></p>
+        <p>Payment: <span class="text-amber">chosen at Step C</span> — Stripe Skills escrow or Blockrun x402</p>
       </div>
       <button id="simNext" class="bg-amber hover:bg-amber/90 text-black font-semibold rounded-lg px-6 py-3 transition-colors">Start Probe</button>
     `;
@@ -795,27 +799,81 @@ function renderSimStep() {
   }
 
   if (simStep === 3) {
+    const stripeActive = simRail === 'stripe';
     content.innerHTML = `
-      <h3 class="text-lg font-bold text-white mb-4">Stripe Escrow Hold</h3>
-      <div class="space-y-2 text-sm text-zinc-300 mb-6 font-mono">
-        <p class="text-green-400">Trust Score: ${simProbeResult.trust_score} &ge; ${TRUST_THRESHOLD} (gate opens)</p>
-        <p>PaymentIntent created: <span class="text-amber">pi_3Oxyz...</span> (test mode)</p>
-        <p>Amount: <span class="text-white">$12.50</span></p>
-        <p>Capture Method: <span class="text-zinc-200">manual (escrow hold)</span></p>
-        <p>Status: <span class="text-cyan">requires_capture</span></p>
+      <h3 class="text-lg font-bold text-white mb-1">Payment</h3>
+      <p class="text-sm text-zinc-400 mb-5">Trust Score: <span class="text-green-400">${simProbeResult.trust_score}/100</span> &ge; ${TRUST_THRESHOLD} — gate opens. Hermes-1 chooses how to pay.</p>
+      <div class="inline-flex items-center gap-1 mb-2 p-1 rounded-lg bg-zinc-900/60 border border-zinc-800">
+        <button id="railStripeBtn" type="button" class="px-4 py-2 rounded-md text-sm font-mono font-semibold transition-colors ${stripeActive ? 'bg-amber text-black' : 'text-zinc-400 hover:text-zinc-200'}">Stripe Skills</button>
+        <button id="railX402Btn" type="button" class="px-4 py-2 rounded-md text-sm font-mono font-semibold transition-colors ${!stripeActive ? 'bg-cyan text-black' : 'text-zinc-400 hover:text-zinc-200'}">Blockrun x402</button>
       </div>
-      <div class="flex flex-wrap gap-3">
-        <button id="simNext" class="bg-amber hover:bg-amber/90 text-black font-semibold rounded-lg px-6 py-3 transition-colors">Provision Sandbox</button>
-        <a href="${STRIPE_DASHBOARD_URL}" target="_blank" rel="noopener" class="inline-flex items-center bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold rounded-lg px-5 py-3 transition-colors">View in Stripe Dashboard</a>
+      <p class="text-xs font-mono text-zinc-500 mb-5">${stripeActive ? 'Enterprise escrow — manual capture, chargebacks, standard rails.' : 'Agent-native — USDC, gasless signatures, no API keys.'}</p>
+      ${terminalBlock('simPaymentTerminal')}
+      <div id="simPaymentDetails" class="mt-5 space-y-2 text-sm text-zinc-300 font-mono"></div>
+      <div class="flex flex-wrap gap-3 mt-6">
+        <button id="simNext" disabled class="hidden bg-amber hover:bg-amber/90 text-black font-semibold rounded-lg px-6 py-3 transition-colors disabled:opacity-40">Deploy to NemoClaw</button>
+        <a id="simRailLink" href="#" target="_blank" rel="noopener" class="hidden inline-flex items-center bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold rounded-lg px-5 py-3 transition-colors"></a>
       </div>
     `;
-    document.getElementById('simNext').addEventListener('click', () => { simStep = 4; renderSimStep(); });
+    document.getElementById('railStripeBtn').addEventListener('click', () => { if (simRail !== 'stripe') { simRail = 'stripe'; renderSimStep(); } });
+    document.getElementById('railX402Btn').addEventListener('click', () => { if (simRail !== 'x402') { simRail = 'x402'; renderSimStep(); } });
+    runPaymentAnimation();
     return;
+  }
+
+  function runPaymentAnimation() {
+    const termEl = document.getElementById('simPaymentTerminal');
+    const detailsEl = document.getElementById('simPaymentDetails');
+    const nextBtn = document.getElementById('simNext');
+    const linkEl = document.getElementById('simRailLink');
+    const stripeLines = [
+      { type: 'cmd', text: '$ hermes stripe:create-payment-intent \\' },
+      { type: 'cmd', text: '    --amount 0.02 \\' },
+      { type: 'cmd', text: '    --currency usd \\' },
+      { type: 'cmd', text: '    --capture-method manual' },
+      { type: 'good', text: `[SKILLS]    PaymentIntent created: ${STRIPE_PI_ID}` },
+      { type: 'good', text: '[ESCROW]    $0.02 held by Stripe' },
+    ];
+    const x402Lines = [
+      { type: 'cmd', text: '$ beacon-pay --target integrate.api.nvidia.com \\' },
+      { type: 'cmd', text: '             --amount 0.50 \\' },
+      { type: 'cmd', text: '             --token usdc-base-sepolia' },
+      { type: 'out', text: '[HANDSHAKE] x402 version 2.0 negotiated' },
+      { type: 'out', text: '[SIGN]      EIP-3009 authorization: 0x71f4...a2c9' },
+      { type: 'out', text: '[RELAY]     Blockrun settling on Base Sepolia...' },
+      { type: 'good', text: `[CONFIRM]   Transaction: ${X402_TX_HASH.slice(0, 6)}...${X402_TX_HASH.slice(-6)}` },
+    ];
+    typeLines(termEl, simRail === 'stripe' ? stripeLines : x402Lines).then(() => {
+      if (simRail === 'stripe') {
+        detailsEl.innerHTML = `
+          <p>PaymentIntent: <span class="text-amber">${STRIPE_PI_ID}</span> (test mode)</p>
+          <p>Amount: <span class="text-white">$0.02 USD</span></p>
+          <p>Capture Method: <span class="text-zinc-200">manual (escrow hold)</span></p>
+          <p>Status: <span class="text-cyan">requires_capture</span> — funds held by Stripe until execution confirms</p>
+        `;
+        linkEl.href = STRIPE_DASHBOARD_URL;
+        linkEl.textContent = 'View in Stripe Dashboard';
+      } else {
+        detailsEl.innerHTML = `
+          <p>Handshake: <span class="text-cyan">x402 v2.0 negotiated</span></p>
+          <p>Authorization: <span class="text-zinc-200">EIP-3009 (gasless signature)</span></p>
+          <p>Settlement: <span class="text-zinc-200">USDC on Base Sepolia</span> via Blockrun</p>
+          <p class="break-all">Transaction: <span class="text-amber">${X402_TX_HASH}</span></p>
+        `;
+        linkEl.href = `${BASESCAN_SEPOLIA_URL}/tx/${X402_TX_HASH}`;
+        linkEl.textContent = 'View on sepolia.basescan.org';
+      }
+      linkEl.classList.remove('hidden');
+      nextBtn.classList.remove('hidden');
+      nextBtn.disabled = false;
+      nextBtn.addEventListener('click', () => { simStep = 4; renderSimStep(); });
+    });
   }
 
   if (simStep === 4) {
     content.innerHTML = `
-      <h3 class="text-lg font-bold text-white mb-4">NemoClaw Sandbox</h3>
+      <h3 class="text-lg font-bold text-white mb-1">Execution</h3>
+      <p class="text-sm text-zinc-400 mb-4">Agent deploys to NemoClaw and calls NIM.</p>
       ${terminalBlock('simSandboxTerminal')}
       <button id="simNext" class="hidden mt-6 bg-amber hover:bg-amber/90 text-black font-semibold rounded-lg px-6 py-3 transition-colors">Complete Purchase</button>
     `;
@@ -841,32 +899,40 @@ function renderSimStep() {
   }
 
   if (simStep === 5) {
+    const stripeActive = simRail === 'stripe';
+    const railBlock = stripeActive ? `
+      <div class="rounded-lg border border-cyan/30 bg-cyan/5 px-5 py-4 mb-6">
+        <p class="text-cyan font-mono text-sm mb-2">Stripe PaymentIntent captured</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm font-mono text-zinc-300">
+          <p>PaymentIntent: <span class="text-amber">${STRIPE_PI_ID}</span></p>
+          <p>Capture Status: <span class="text-green-400">succeeded</span></p>
+          <p>Amount Captured: <span class="text-zinc-200">$0.02 USD</span></p>
+        </div>
+        <p class="mt-3"><a href="${STRIPE_DASHBOARD_URL}" target="_blank" rel="noopener" class="text-cyan hover:underline text-xs font-mono">View in Stripe Dashboard →</a></p>
+      </div>` : `
+      <div class="rounded-lg border border-cyan/30 bg-cyan/5 px-5 py-4 mb-6">
+        <p class="text-cyan font-mono text-sm mb-2">Blockrun settlement confirmed — USDC on Base Sepolia</p>
+        <p class="text-sm font-mono text-zinc-300 break-all">Transaction: <span class="text-zinc-200">${X402_TX_HASH}</span></p>
+        <p class="mt-3"><a href="${BASESCAN_SEPOLIA_URL}/tx/${X402_TX_HASH}" target="_blank" rel="noopener" class="text-cyan hover:underline text-xs font-mono">View on sepolia.basescan.org →</a></p>
+      </div>`;
     content.innerHTML = `
-      <h3 class="text-lg font-bold text-white mb-4">Purchase Complete</h3>
+      <h3 class="text-lg font-bold text-white mb-4">Receipt</h3>
       <div class="rounded-lg border border-green-400/30 bg-green-400/5 px-5 py-4 mb-6">
-        <p class="text-green-400 font-mono text-sm mb-3">✓ Payment captured. Receipt generated.</p>
+        <p class="text-green-400 font-mono text-sm mb-3">✓ ${stripeActive ? 'Payment captured.' : 'Settlement confirmed.'} Receipt generated.</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm font-mono text-zinc-300">
           <p>Receipt ID: <span class="text-amber">rcpt_beacon_8f2ac1</span></p>
-          <p>Service: <span class="text-zinc-200">NVIDIA NemoClaw</span></p>
-          <p>Duration: <span class="text-zinc-200">1 hour</span></p>
-          <p>Amount Held: <span class="text-zinc-200">$12.50</span></p>
-          <p>Amount Captured: <span class="text-zinc-200">$12.50</span></p>
-          <p>PaymentIntent: <span class="text-zinc-200">pi_3Oxyz...</span> (test mode)</p>
-          <p class="sm:col-span-2">Evaluator: <span class="text-green-400">${escapeHtml(simProbeResult.evaluator)}</span> (score: ${simProbeResult.trust_score})</p>
+          <p>Service: <span class="text-zinc-200">NVIDIA NIM (via NemoClaw)</span></p>
+          <p>Rail: <span class="text-zinc-200">${stripeActive ? 'Stripe Skills' : 'Blockrun x402'}</span></p>
+          <p class="sm:col-span-2">Evaluator: <span class="text-green-400">${escapeHtml(simProbeResult.evaluator)}</span> (score: ${simProbeResult.trust_score}/100)</p>
         </div>
       </div>
-      <div class="rounded-lg border border-cyan/30 bg-cyan/5 px-5 py-4 mb-6">
-        <p class="text-cyan font-mono text-sm mb-2">x402 handshake complete — Blockrun settled USDC on Base</p>
-        <p class="text-xs font-mono text-zinc-400 break-all">tx: <span class="text-zinc-200">0x7f8c9d2e1b4a6f5e3d2c1b0a9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e</span></p>
-        <p class="text-[11px] font-mono text-zinc-500 mt-1">Settled on Base (EIP-155:8453)</p>
-      </div>
+      ${railBlock}
       <div class="flex flex-wrap gap-3">
-        <a href="${STRIPE_DASHBOARD_URL}" target="_blank" rel="noopener" class="inline-flex items-center bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold rounded-lg px-5 py-3 transition-colors">View Stripe Receipt</a>
         <button id="simRestart" class="bg-amber hover:bg-amber/90 text-black font-semibold rounded-lg px-5 py-3 transition-colors">Run Again</button>
         <button id="simBackToDirectory" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold rounded-lg px-5 py-3 transition-colors">Back to Directory</button>
       </div>
     `;
-    document.getElementById('simRestart').addEventListener('click', () => { simStep = 1; renderSimStep(); });
+    document.getElementById('simRestart').addEventListener('click', () => { simStep = 1; simRail = 'stripe'; renderSimStep(); });
     document.getElementById('simBackToDirectory').addEventListener('click', () => setActiveTab('directory'));
     return;
   }
