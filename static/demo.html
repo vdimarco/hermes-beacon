@@ -73,8 +73,8 @@
   <div class="rounded-xl border border-zinc-800 bg-zinc-900/30 p-5 overflow-x-auto scrollbar-thin">
     <div class="flex items-stretch gap-2 sm:gap-3 min-w-[720px]">
       <div class="flex-1 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-3 text-center">
-        <p class="font-mono text-xs sm:text-sm font-semibold text-white">Hermes Agent</p>
-        <p class="text-[10px] sm:text-[11px] text-zinc-500 mt-1">Discovers &amp; intends</p>
+        <p class="font-mono text-xs sm:text-sm font-semibold text-white">Agent Intent</p>
+        <p class="text-[10px] sm:text-[11px] text-zinc-500 mt-1">Hermes agent decides</p>
       </div>
       <div class="flex items-center text-zinc-600">→</div>
       <div class="flex-1 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-3 text-center">
@@ -83,18 +83,18 @@
       </div>
       <div class="flex items-center text-zinc-600">→</div>
       <div class="flex-1 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-3 text-center">
-        <p class="font-mono text-xs sm:text-sm font-semibold text-white">Nemotron 3</p>
-        <p class="text-[10px] sm:text-[11px] text-zinc-500 mt-1">Trust scoring</p>
+        <p class="font-mono text-xs sm:text-sm font-semibold text-white">Scored API</p>
+        <p class="text-[10px] sm:text-[11px] text-zinc-500 mt-1">Nemotron 3 trust score</p>
       </div>
       <div class="flex items-center text-zinc-600">→</div>
       <div class="flex-1 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-3 text-center">
-        <p class="font-mono text-xs sm:text-sm font-semibold text-white">Escrow Gate</p>
-        <p class="text-[10px] sm:text-[11px] text-zinc-500 mt-1">Stripe hold</p>
+        <p class="font-mono text-xs sm:text-sm font-semibold text-white">x402 Payment</p>
+        <p class="text-[10px] sm:text-[11px] text-zinc-500 mt-1">Escrow / settlement</p>
       </div>
       <div class="flex items-center text-zinc-600">→</div>
       <div class="flex-1 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-3 text-center">
-        <p class="font-mono text-xs sm:text-sm font-semibold text-white">NemoClaw</p>
-        <p class="text-[10px] sm:text-[11px] text-zinc-500 mt-1">Isolated execution</p>
+        <p class="font-mono text-xs sm:text-sm font-semibold text-white">Authorized API Call</p>
+        <p class="text-[10px] sm:text-[11px] text-zinc-500 mt-1">NVIDIA NIM · Stripe · Nous</p>
       </div>
     </div>
   </div>
@@ -149,7 +149,7 @@
 <!-- ============ TAB 2: SIMULATE PURCHASE ============ -->
 <section id="tab-simulate" class="tab-panel max-w-6xl mx-auto px-6 py-10">
   <h2 class="text-xl font-bold text-white">Simulate Agent Purchase</h2>
-  <p class="text-sm text-zinc-500 mt-1 max-w-2xl">Watch how a Hermes agent discovers, probes, and pays for NIM inference on NemoClaw — via Stripe Skills escrow by default, or switch to Blockrun x402 for agent-native micropayments.</p>
+  <p class="text-sm text-zinc-500 mt-1 max-w-2xl">Watch how a Hermes agent discovers, probes, and pays a real scored API — NVIDIA NIM — for inference access, via Stripe Skills escrow by default or Blockrun x402 for agent-native micropayments.</p>
 
   <!-- Step indicator -->
   <div class="mt-6 flex items-center justify-between text-xs font-mono text-zinc-500" id="stepLabel"></div>
@@ -222,19 +222,31 @@
 
 <section class="max-w-6xl mx-auto px-6 pb-16 mt-4">
   <div class="rounded-xl border border-zinc-800 bg-zinc-900/30 p-6 sm:p-8">
-    <h2 class="text-lg font-bold text-white mb-1">Built for Hermes × Stripe × NVIDIA</h2>
+    <h2 class="text-lg font-bold text-white mb-1">Built for Hermes × NemoClaw × Stripe × Blockrun × NVIDIA NIM</h2>
     <p class="text-sm text-zinc-500 mb-6">Built for the Hermes Accelerated Agent Business Hackathon — this is a live demo. The evaluator field and Stripe dashboard are both verifiable now.</p>
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 text-sm">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 text-sm">
       <div>
         <p class="font-mono text-amber font-semibold mb-1">Hermes</p>
         <p class="text-zinc-400">the agent orchestrator. This demo simulates a Hermes agent selecting tools, triggering payments via Stripe Skills, and hitting Beacon's escrow gate before any money moves.</p>
+      </div>
+      <div>
+        <p class="font-mono text-zinc-300 font-semibold mb-1">NemoClaw</p>
+        <p class="text-zinc-400">the orchestration framework the agent runs on. NemoClaw is a hackathon partner and execution runtime — it doesn't appear in the Agent Directory because it isn't a scored, consumable API.</p>
       </div>
       <div>
         <p class="font-mono text-cyan font-semibold mb-1">Stripe Skills for Hermes</p>
         <p class="text-zinc-400">dual-rail payments: Stripe PaymentIntents (high-value escrow) or Blockrun x402 (agent-native micropayments). Real test-mode PaymentIntents with manual capture, or gasless EIP-3009 USDC settlement on Base. The escrow gate blocks bad endpoints entirely, on either rail.</p>
       </div>
       <div>
-        <p class="font-mono text-green-400 font-semibold mb-1">NVIDIA Nemotron 3 Ultra</p>
+        <p class="font-mono text-purple-400 font-semibold mb-1">Blockrun</p>
+        <p class="text-zinc-400">settles the x402 leg. Once escrow clears, Blockrun settles USDC on Base for the agent's completed request.</p>
+      </div>
+      <div>
+        <p class="font-mono text-green-400 font-semibold mb-1">NVIDIA NIM</p>
+        <p class="text-zinc-400">the real scored API in this demo. A live probe against integrate.api.nvidia.com is what the agent actually pays to call.</p>
+      </div>
+      <div>
+        <p class="font-mono text-lime-400 font-semibold mb-1">NVIDIA Nemotron 3 Ultra</p>
         <p class="text-zinc-400">the scoring brain. Live inference via Nous Research API. Every probe gets a real LLM evaluation, not a heuristic.</p>
       </div>
     </div>
@@ -249,6 +261,7 @@
     </div>
     <div class="flex flex-wrap items-center gap-3 text-[11px] font-mono uppercase tracking-wide text-zinc-600">
       <span class="px-2 py-1 rounded border border-zinc-800">Hermes</span>
+      <span class="px-2 py-1 rounded border border-zinc-800">NemoClaw</span>
       <span class="px-2 py-1 rounded border border-zinc-800">Stripe</span>
       <span class="px-2 py-1 rounded border border-zinc-800">Blockrun</span>
       <span class="px-2 py-1 rounded border border-zinc-800">NVIDIA NIM</span>
@@ -722,11 +735,11 @@ function renderSimStep() {
   if (simStep === 1) {
     content.innerHTML = `
       <h3 class="text-lg font-bold text-white mb-1">Agent Intent</h3>
-      <p class="text-sm text-zinc-400 mb-5">Hermes-1 wants to run inference on NVIDIA NIM, deployed via NemoClaw.</p>
+      <p class="text-sm text-zinc-400 mb-5">Hermes-1 wants to query the NVIDIA NIM model catalog and run an inference request.</p>
       <div class="space-y-2 text-sm text-zinc-300 mb-6 font-mono">
         <p>Agent ID: <span class="text-cyan">hermes-1</span></p>
         <p>Target Service: <span class="text-zinc-200">NVIDIA NIM inference gateway</span></p>
-        <p>Action: <span class="text-zinc-200">Verify trust, then run inference via NemoClaw</span></p>
+        <p>Action: <span class="text-zinc-200">Verify trust, then run a chat completion via NVIDIA NIM</span></p>
         <p>Payment: <span class="text-amber">chosen at Step C</span> — Stripe Skills escrow or Blockrun x402</p>
       </div>
       <button id="simNext" class="bg-amber hover:bg-amber/90 text-black font-semibold rounded-lg px-6 py-3 transition-colors">Start Probe</button>
@@ -757,7 +770,7 @@ function renderSimStep() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             target_url: target,
-            task_description: 'NVIDIA NIM GPU inference gateway trust check ahead of NemoClaw provisioning',
+            task_description: 'NVIDIA NIM inference gateway trust check ahead of running a chat completion',
             payload: { model: 'meta/llama-3.1-8b-instruct', messages: [{ role: 'user', content: 'ping' }] },
             ground_truth: '',
             spend_amount_cents: 1,
@@ -811,7 +824,7 @@ function renderSimStep() {
       ${terminalBlock('simPaymentTerminal')}
       <div id="simPaymentDetails" class="mt-5 space-y-2 text-sm text-zinc-300 font-mono"></div>
       <div class="flex flex-wrap gap-3 mt-6">
-        <button id="simNext" disabled class="hidden bg-amber hover:bg-amber/90 text-black font-semibold rounded-lg px-6 py-3 transition-colors disabled:opacity-40">Deploy to NemoClaw</button>
+        <button id="simNext" disabled class="hidden bg-amber hover:bg-amber/90 text-black font-semibold rounded-lg px-6 py-3 transition-colors disabled:opacity-40">Run NIM Inference</button>
         <a id="simRailLink" href="#" target="_blank" rel="noopener" class="hidden inline-flex items-center bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold rounded-lg px-5 py-3 transition-colors"></a>
       </div>
     `;
@@ -872,23 +885,19 @@ function renderSimStep() {
 
   if (simStep === 4) {
     content.innerHTML = `
-      <h3 class="text-lg font-bold text-white mb-1">Execution</h3>
-      <p class="text-sm text-zinc-400 mb-4">Agent deploys to NemoClaw and calls NIM.</p>
+      <h3 class="text-lg font-bold text-white mb-4">NVIDIA NIM Inference Call</h3>
+      <p class="text-xs font-mono text-zinc-500 mb-3">Escrow cleared. Hermes-1 runs the paid-for request against NVIDIA NIM directly — no sandbox, no NemoClaw involved.</p>
       ${terminalBlock('simSandboxTerminal')}
       <button id="simNext" class="hidden mt-6 bg-amber hover:bg-amber/90 text-black font-semibold rounded-lg px-6 py-3 transition-colors">Complete Purchase</button>
     `;
     const sandboxLines = [
-      { type: 'cmd', text: '$ nemoclaw openshell init \\' },
-      { type: 'cmd', text: '    --gpu a100 \\' },
-      { type: 'cmd', text: '    --duration 1h \\' },
-      { type: 'cmd', text: '    --network restricted \\' },
-      { type: 'cmd', text: '    --telemetry on' },
-      { type: 'good', text: '[OK] Container isolated' },
-      { type: 'good', text: '[OK] Network: restricted (no egress)' },
-      { type: 'good', text: '[OK] GPU attached: NVIDIA A100 (40GB)' },
-      { type: 'good', text: '[OK] OpenShell telemetry active' },
-      { type: 'good', text: '[OK] Hermes-1 agent injected' },
-      { type: 'good', text: 'Sandbox ready.' },
+      { type: 'cmd', text: '$ curl -X POST https://integrate.api.nvidia.com/v1/chat/completions \\' },
+      { type: 'cmd', text: '    -H "Authorization: Bearer $NIM_API_KEY" \\' },
+      { type: 'cmd', text: '    -d \'{"model":"meta/llama-3.1-8b-instruct","messages":[...]}\'' },
+      { type: 'good', text: '[OK] Request authorized (real API key attached post-payment)' },
+      { type: 'good', text: '[OK] Streaming response…' },
+      { type: 'good', text: '[OK] Completion received: 128 tokens' },
+      { type: 'good', text: 'Inference complete.' },
     ];
     typeLines(document.getElementById('simSandboxTerminal'), sandboxLines).then(() => {
       const nextBtn = document.getElementById('simNext');
@@ -921,7 +930,8 @@ function renderSimStep() {
         <p class="text-green-400 font-mono text-sm mb-3">✓ ${stripeActive ? 'Payment captured.' : 'Settlement confirmed.'} Receipt generated.</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm font-mono text-zinc-300">
           <p>Receipt ID: <span class="text-amber">rcpt_beacon_8f2ac1</span></p>
-          <p>Service: <span class="text-zinc-200">NVIDIA NIM (via NemoClaw)</span></p>
+          <p>Service: <span class="text-zinc-200">NVIDIA NIM</span></p>
+          <p>Request: <span class="text-zinc-200">chat/completions (128 tokens)</span></p>
           <p>Rail: <span class="text-zinc-200">${stripeActive ? 'Stripe Skills' : 'Blockrun x402'}</span></p>
           <p class="sm:col-span-2">Evaluator: <span class="text-green-400">${escapeHtml(simProbeResult.evaluator)}</span> (score: ${simProbeResult.trust_score}/100)</p>
         </div>
@@ -963,15 +973,15 @@ const seed_scores = SPONSOR_APIS.map(api => ({
 /* Terminal "Live Probe Log" typing animation                             */
 /* ---------------------------------------------------------------------- */
 const heroTranscript = [
-  { type: 'cmd', text: '$ hermes agent "provision a GPU via NemoClaw"' },
-  { type: 'out', text: '→ tool selected: nemoclaw-provision' },
+  { type: 'cmd', text: '$ hermes agent "run inference via NVIDIA NIM"' },
+  { type: 'out', text: '→ tool selected: nvidia-nim-inference' },
   { type: 'out', text: '→ Beacon probe triggered (auto)' },
   { type: 'blank' },
-  { type: 'cmd', text: '$ beacon probe https://nemoclaw.nvidia.com/v1/provision' },
+  { type: 'cmd', text: '$ beacon probe https://integrate.api.nvidia.com/v1/chat/completions' },
   { type: 'out', text: '→ evaluator: nemotron-3-ultra' },
   { type: 'good', text: '→ trust_score: 96' },
   { type: 'blank' },
-  { type: 'cmd', text: '$ hermes agent "pay $12.50 for 2hr GPU"' },
+  { type: 'cmd', text: '$ hermes agent "pay $12.50 for NIM inference access"' },
   { type: 'out', text: '→ Stripe Skills payment intent' },
   { type: 'out', text: '→ Beacon escrow validate' },
   { type: 'good', text: '→ trust_score: 96 ≥ 70? PASS' },
