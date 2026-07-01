@@ -5,7 +5,7 @@ and gate payments on the result. Four FastAPI services behind a single
 public gateway, with persistent SQLite storage. Runs locally with one
 command, or deployed on Fly.io.
 
-**Live:** https://hermes-beacon.fly.dev
+**Live:** https://hermes.beacons.fyi
 
 ## Architecture
 
@@ -53,7 +53,7 @@ public, no-auth test/echo APIs:
 
 ```bash
 python scripts/seed_real_probes.py                 # probes http://localhost:8080
-BASE_URL=https://hermes-beacon.fly.dev python scripts/seed_real_probes.py
+BASE_URL=https://hermes.beacons.fyi python scripts/seed_real_probes.py
 ```
 
 These go through the real `/v1/probe` pipeline (`postman-echo.com`,
@@ -99,7 +99,7 @@ ports 8000-8003 don't have a public route.
 
 ## curl examples
 
-Examples below use `http://localhost:8080` (swap in `https://hermes-beacon.fly.dev` to hit the live deployment).
+Examples below use `http://localhost:8080` (swap in `https://hermes.beacons.fyi` to hit the live deployment).
 
 **Probe a target API:**
 
@@ -159,7 +159,7 @@ python test_end_to_end.py
 Against the live deployment:
 
 ```bash
-BASE_URL=https://hermes-beacon.fly.dev python test_end_to_end.py
+BASE_URL=https://hermes.beacons.fyi python test_end_to_end.py
 ```
 
 Prints a green `PASS`/red `FAIL` per step and exits 0 only if everything

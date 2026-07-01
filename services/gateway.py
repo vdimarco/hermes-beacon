@@ -8,7 +8,7 @@ import sys
 
 import httpx
 from fastapi import FastAPI, Request, Response
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -17,6 +17,21 @@ import config
 app = FastAPI(title="Beacon Gateway")
 
 STATIC_DIR = os.path.join(config.BASE_DIR, "static")
+
+# The app moved from the Fly.io default hostname to a custom domain. Keep the
+# old hostname working as a permanent redirect instead of breaking links.
+LEGACY_HOSTNAME = "hermes-beacon.fly.dev"
+CANONICAL_ORIGIN = "https://hermes.beacons.fyi"
+
+
+@app.middleware("http")
+async def redirect_legacy_hostname(request: Request, call_next):
+    if request.url.hostname == LEGACY_HOSTNAME:
+        target = f"{CANONICAL_ORIGIN}{request.url.path}"
+        if request.url.query:
+            target += f"?{request.url.query}"
+        return RedirectResponse(url=target, status_code=308)
+    return await call_next(request)
 
 UPSTREAMS = {
     "probe": config.PROBE_ENGINE_URL,
