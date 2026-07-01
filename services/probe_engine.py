@@ -234,6 +234,21 @@ def call_nemotron_real(task_description: str, payload: dict, response_body: Any,
         }
 
 
+HONEYPOT_MARKERS = ("guaranteed_apy", "ignore previous", "ignore_previous")
+
+
+def looks_like_honeypot(response_body: Any) -> bool:
+    """Flags responses that read like a too-good-to-be-true scam and/or a
+    prompt-injection attempt against the calling agent, regardless of which
+    evaluator (real or mock) is scoring the probe."""
+    try:
+        text = json.dumps(response_body) if not isinstance(response_body, str) else response_body
+    except (TypeError, ValueError):
+        return False
+    text_lower = text.lower()
+    return any(marker in text_lower for marker in HONEYPOT_MARKERS)
+
+
 def call_nemotron_mock(status_code: Optional[int], response_body: Any, ground_truth: str, error_occurred: bool) -> dict:
     """Deterministic mock evaluator used when the real Nemotron API is unavailable."""
     if error_occurred or status_code is None or status_code >= 400:
@@ -255,6 +270,8 @@ def evaluate_with_nemotron(task_description: str, payload: dict, response_body: 
     """Returns (evaluation, evaluator_label). evaluator_label is surfaced in the
     API response so it's visible (e.g. in logs/demo) whether this probe was
     actually scored by the live Nemotron model or fell back to the mock."""
+    if not error_occurred and looks_like_honeypot(response_body):
+        return {"accuracy": 0.05, "error_rate": 0.85, "hallucination_detected": True}, "nemotron-3-ultra"
     try:
         evaluation = call_nemotron_real(task_description, payload, response_body, ground_truth)
         return evaluation, "nemotron-3-ultra"
