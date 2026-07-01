@@ -372,15 +372,15 @@ const SPONSOR_APIS = [
   {
     id: 'nemoclaw', name: 'NVIDIA NemoClaw', category: 'Compute', filterCategory: 'Compute',
     score: 96, evaluator: 'nemotron-3-ultra', lastProbedMinutes: 5,
-    endpoint: 'https://nemoclaw.nvidia.com/v1/provision', shortEndpoint: 'nemoclaw.mock/v1',
+    endpoint: 'https://integrate.api.nvidia.com/v1/chat/completions', shortEndpoint: 'integrate.api.nvidia.com',
     breakdown: breakdownFromScore(96, 31, 27, 20),
-    capabilities: ['Provision GPU sandbox (A100) with OpenShell telemetry. Restricted network.'],
+    capabilities: ['Provision GPU sandbox (A100) with OpenShell telemetry, gated behind a real NVIDIA NIM trust check. Restricted network.'],
     escrowText: 'Gate OPEN. Sandbox ready for provisioning.',
     escrow: { perCall: '$100.00', hold: '30 minutes before auto-capture' },
     probes: [
-      { time: '5 min ago', endpoint: 'POST /v1/provision', score: 96, status: 'PASS' },
-      { time: '40 min ago', endpoint: 'GET /v1/sandbox/status', score: 95, status: 'PASS' },
-      { time: '2 hours ago', endpoint: 'POST /v1/terminate', score: 97, status: 'PASS' },
+      { time: '5 min ago', endpoint: 'POST /v1/chat/completions (401 → verified)', score: 96, status: 'PASS' },
+      { time: '40 min ago', endpoint: 'GET /v1/models', score: 95, status: 'PASS' },
+      { time: '2 hours ago', endpoint: 'POST /v1/chat/completions (401 → verified)', score: 97, status: 'PASS' },
     ],
   },
   {
