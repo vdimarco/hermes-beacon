@@ -329,16 +329,6 @@ function showToast(message) {
   showToast._t = setTimeout(() => toast.classList.add('hidden'), 3200);
 }
 
-function statusForScore(score) {
-  return score >= TRUST_THRESHOLD ? 'PASS' : 'GATED';
-}
-
-function scoreBadgeClass(score) {
-  if (score >= TRUST_THRESHOLD) return 'bg-green-400/10 text-green-400 border-green-400/30';
-  if (score >= 50) return 'bg-yellow-400/10 text-yellow-400 border-yellow-400/30';
-  return 'bg-red-500/10 text-red-500 border-red-500/30';
-}
-
 /* Breakdown weights: Accuracy/35, Latency/30, Uptime/20, Trust Signals/15 (bonus-eligible) */
 function breakdownFromScore(score, accuracy, latency, uptime) {
   const trustSignals = score - (accuracy + latency + uptime);
@@ -370,13 +360,13 @@ const SPONSOR_APIS = [
     ],
   },
   {
-    id: 'nemoclaw', name: 'NVIDIA NemoClaw', category: 'Compute', filterCategory: 'Compute',
+    id: 'nvidia-nim', name: 'NVIDIA NIM', category: 'Compute', filterCategory: 'Compute',
     score: 96, evaluator: 'nemotron-3-ultra', lastProbedMinutes: 5,
     endpoint: 'https://integrate.api.nvidia.com/v1/chat/completions', shortEndpoint: 'integrate.api.nvidia.com',
     breakdown: breakdownFromScore(96, 31, 27, 20),
-    capabilities: ['Provision GPU sandbox (A100) with OpenShell telemetry, gated behind a real NVIDIA NIM trust check. Restricted network.'],
-    escrowText: 'Gate OPEN. Sandbox ready for provisioning.',
-    escrow: { perCall: '$100.00', hold: '30 minutes before auto-capture' },
+    capabilities: ['Run OpenAI-compatible chat completions on NVIDIA-hosted models (Llama, Mistral, and others) via NIM microservices.'],
+    escrowText: 'Gate OPEN. NIM inference gateway verified.',
+    escrow: { perCall: '$25.00', hold: '30 minutes before auto-capture' },
     probes: [
       { time: '5 min ago', endpoint: 'POST /v1/chat/completions (401 → verified)', score: 96, status: 'PASS' },
       { time: '40 min ago', endpoint: 'GET /v1/models', score: 95, status: 'PASS' },
@@ -384,10 +374,10 @@ const SPONSOR_APIS = [
     ],
   },
   {
-    id: 'hermes', name: 'Hermes Portal', category: 'LLM', filterCategory: 'LLM',
-    score: 94, evaluator: 'nemotron-3-ultra', lastProbedMinutes: 1,
-    endpoint: 'https://inference-api.nousresearch.com/v1/chat/completions', shortEndpoint: 'portal.nousresearch.com',
-    breakdown: breakdownFromScore(94, 30, 27, 20),
+    id: 'nous', name: 'Nous Research', category: 'LLM', filterCategory: 'LLM',
+    score: 95, evaluator: 'nemotron-3-ultra', lastProbedMinutes: 3,
+    endpoint: 'https://inference-api.nousresearch.com/v1/chat/completions', shortEndpoint: 'inference-api.nousresearch.com',
+    breakdown: breakdownFromScore(95, 31, 27, 20),
     capabilities: [
       'Run chat/completions on Hermes-4.3-36B, Hermes-4-70B, and Hermes-4-405B (128k context), OpenAI-compatible.',
       'Pay per request via x402 (Solana USDC) with no account or API key required.',
@@ -395,23 +385,23 @@ const SPONSOR_APIS = [
     escrowText: 'Gate OPEN. x402 pay-per-request enabled — no pre-purchased credits needed.',
     escrow: { perCall: '$5.00 (token-metered via x402, bounded by max_tokens)', hold: 'Immediate — x402 settles per request, no escrow hold' },
     probes: [
-      { time: '1 min ago', endpoint: 'POST /v1/chat/completions (402 → X-PAYMENT retry)', score: 94, status: 'PASS' },
-      { time: '20 min ago', endpoint: 'POST /v1/completions', score: 93, status: 'PASS' },
-      { time: '3 hours ago', endpoint: 'GET /api/openapi', score: 95, status: 'PASS' },
+      { time: '3 min ago', endpoint: 'POST /v1/chat/completions (402 → X-PAYMENT retry)', score: 95, status: 'PASS' },
+      { time: '25 min ago', endpoint: 'POST /v1/completions', score: 94, status: 'PASS' },
+      { time: '4 hours ago', endpoint: 'GET /api/openapi', score: 96, status: 'PASS' },
     ],
   },
   {
-    id: 'nous', name: 'Nous Research', category: 'LLM', filterCategory: 'LLM',
-    score: 95, evaluator: 'nemotron-3-ultra', lastProbedMinutes: 3,
-    endpoint: 'https://api.nousresearch.com/v1/chat/completions', shortEndpoint: 'inference-api.nous.com',
-    breakdown: breakdownFromScore(95, 31, 27, 20),
-    capabilities: ['Run inference on Hermes-4-70B, Llama-3-8B, Nemotron-3-Ultra.'],
-    escrowText: 'Gate OPEN. Inference API available.',
-    escrow: { perCall: '$15.00', hold: '30 minutes before auto-capture' },
+    id: 'honeypot', name: 'YieldFarm Scam API', category: 'Payments', filterCategory: 'Payments',
+    score: 8, evaluator: 'nemotron-3-ultra', lastProbedMinutes: 7,
+    endpoint: 'https://hermes.beacons.fyi/mock/honeypot/v1/yield', shortEndpoint: 'hermes.beacons.fyi/mock/honeypot',
+    breakdown: breakdownFromScore(8, 3, 2, 2),
+    capabilities: ['Claims a guaranteed 500% APY with zero risk and no auth, and embeds a prompt-injection instruction telling agents to auto-approve transactions.'],
+    escrowText: 'Gate BLOCKED. Beacon detected a prompt-injection attempt and unrealistic guarantees — real probe, real detection.',
+    escrow: { perCall: '$0.00 — spending blocked', hold: 'N/A — escrow gate closed' },
     probes: [
-      { time: '3 min ago', endpoint: 'POST /v1/chat/completions', score: 95, status: 'PASS' },
-      { time: '25 min ago', endpoint: 'POST /v1/chat/completions', score: 94, status: 'PASS' },
-      { time: '4 hours ago', endpoint: 'GET /v1/models', score: 96, status: 'PASS' },
+      { time: '7 min ago', endpoint: 'POST /v1/yield', score: 8, status: 'MALICIOUS' },
+      { time: '45 min ago', endpoint: 'POST /v1/yield', score: 6, status: 'MALICIOUS' },
+      { time: '3 hours ago', endpoint: 'POST /v1/yield', score: 9, status: 'MALICIOUS' },
     ],
   },
   {
@@ -506,20 +496,27 @@ function sortedFilteredApis() {
   return list;
 }
 
+function classifyDirectoryApi(api) {
+  return classifyScore({ trust_score: api.score, status: api.status, grade: api.grade });
+}
+
 function renderDirectory() {
   const tbody = document.getElementById('directoryBody');
   const list = sortedFilteredApis();
-  tbody.innerHTML = list.map(api => `
+  tbody.innerHTML = list.map(api => {
+    const c = classifyDirectoryApi(api);
+    return `
     <tr class="directory-row hover:bg-zinc-900/50 transition-colors cursor-pointer" data-id="${api.id}">
       <td class="px-4 py-3 font-mono text-zinc-200">${escapeHtml(api.name)}</td>
       <td class="px-4 py-3 text-zinc-400"><span class="text-[11px] border border-zinc-700 rounded-full px-2 py-0.5">${escapeHtml(api.category)}</span></td>
       <td class="px-4 py-3 font-mono text-zinc-500 text-xs truncate max-w-[160px]" title="${escapeHtml(api.endpoint)}">${escapeHtml(api.shortEndpoint)}</td>
-      <td class="px-4 py-3 font-mono text-white font-bold">${api.score}/100</td>
+      <td class="px-4 py-3 font-mono text-white font-bold">${c.showScore ? `${api.score}/100` : '— / 100'}</td>
       <td class="px-4 py-3 font-mono text-green-400 text-xs">evaluator: ${escapeHtml(api.evaluator)}</td>
-      <td class="px-4 py-3"><span class="text-[11px] font-mono uppercase tracking-wide border rounded px-2 py-1 ${scoreBadgeClass(api.score)}">${statusForScore(api.score)}</span></td>
+      <td class="px-4 py-3"><span class="text-[11px] font-mono uppercase tracking-wide border rounded px-2 py-1 ${c.badgeClass} ${c.blink ? 'animate-blink' : ''}">${c.badgeLabel}</span></td>
       <td class="px-4 py-3 text-zinc-500 text-xs last-probed-cell" data-probed-at="${api.probedAt}">${timeAgo(api.probedAt)}</td>
-      <td class="px-4 py-3"><button type="button" class="view-details-btn text-cyan hover:underline text-xs font-mono">View Score</button></td>
-    </tr>`).join('');
+      <td class="px-4 py-3"><button type="button" class="view-details-btn text-cyan hover:underline text-xs font-mono">View Details</button></td>
+    </tr>`;
+  }).join('');
   tbody.querySelectorAll('.directory-row').forEach(row => {
     row.addEventListener('click', () => openDetailModal(row.dataset.id));
   });
@@ -553,30 +550,32 @@ function scoreBarHTML(item) {
 function openDetailModal(id) {
   const api = SPONSOR_APIS.find(a => a.id === id);
   if (!api) return;
+  const c = classifyDirectoryApi(api);
   const body = document.getElementById('detailBody');
   body.innerHTML = `
     <div class="flex items-center gap-3 mb-1">
       <h3 class="text-lg font-bold text-white">${escapeHtml(api.name)}</h3>
-      <span class="text-[11px] font-mono uppercase tracking-wide border rounded px-2 py-1 ${scoreBadgeClass(api.score)}">${api.score}/100</span>
+      <span class="text-[11px] font-mono uppercase tracking-wide border rounded px-2 py-1 ${c.badgeClass} ${c.blink ? 'animate-blink' : ''}">${c.showScore ? `${api.score}/100` : c.badgeLabel}</span>
     </div>
     <p class="text-xs font-mono text-green-400 mb-5">Scored by Nemotron 3 Ultra · evaluator: ${escapeHtml(api.evaluator)}</p>
+    ${c.reason ? `<p class="text-xs font-mono text-red-400 mb-5">${escapeHtml(c.reason)}</p>` : ''}
 
     <p class="text-xs font-mono uppercase tracking-wide text-zinc-500 mb-2">Score Breakdown</p>
     <div class="space-y-3 mb-6">
       ${api.breakdown.map(scoreBarHTML).join('')}
       <div class="flex justify-between text-sm font-mono font-bold text-white pt-2 border-t border-zinc-800">
-        <span>Total</span><span>${api.score}/100</span>
+        <span>Total</span><span>${c.showScore ? `${api.score}/100` : '— / 100'}</span>
       </div>
     </div>
 
     <p class="text-xs font-mono uppercase tracking-wide text-zinc-500 mb-2">What my agent can do here</p>
     <ul class="list-disc list-inside text-sm text-zinc-300 space-y-1 mb-6">
-      ${api.capabilities.map(c => `<li>${escapeHtml(c)}</li>`).join('')}
+      ${api.capabilities.map(cap => `<li>${escapeHtml(cap)}</li>`).join('')}
     </ul>
 
     <p class="text-xs font-mono uppercase tracking-wide text-zinc-500 mb-2">Escrow Status</p>
     <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 px-4 py-3 text-sm text-zinc-300 space-y-1 mb-6 font-mono">
-      <p class="text-green-400">${escapeHtml(api.escrowText)}</p>
+      <p class="${c.payEnabled ? 'text-green-400' : 'text-red-400'}">${escapeHtml(api.escrowText)}</p>
       <p>Your agent can spend up to ${escapeHtml(api.escrow.perCall)} per API call</p>
       <p>Funds held for ${escapeHtml(api.escrow.hold)}</p>
       ${api.stripeLink ? `<p class="pt-1"><a href="${STRIPE_DASHBOARD_URL}" target="_blank" rel="noopener" class="text-cyan hover:underline">View in Stripe Dashboard →</a></p>` : ''}
@@ -592,16 +591,19 @@ function openDetailModal(id) {
           <tr><th class="text-left px-3 py-2">Time</th><th class="text-left px-3 py-2">Endpoint</th><th class="text-left px-3 py-2">Score</th><th class="text-left px-3 py-2">Status</th></tr>
         </thead>
         <tbody class="divide-y divide-zinc-800 font-mono text-zinc-300">
-          ${api.probes.map(p => `<tr><td class="px-3 py-2">${escapeHtml(p.time)}</td><td class="px-3 py-2">${escapeHtml(p.endpoint)}</td><td class="px-3 py-2">${p.score}</td><td class="px-3 py-2 text-green-400">${escapeHtml(p.status)}</td></tr>`).join('')}
+          ${api.probes.map(p => `<tr><td class="px-3 py-2">${escapeHtml(p.time)}</td><td class="px-3 py-2">${escapeHtml(p.endpoint)}</td><td class="px-3 py-2">${p.score}</td><td class="px-3 py-2 ${p.status === 'PASS' ? 'text-green-400' : 'text-red-400'}">${escapeHtml(p.status)}</td></tr>`).join('')}
         </tbody>
       </table>
     </div>
 
-    <button id="allowlistBtn" class="w-full bg-amber hover:bg-amber/90 text-black font-semibold rounded-lg py-3 transition-colors">Add to Agent Allowlist</button>
+    <button id="allowlistBtn" class="w-full ${c.payEnabled ? 'bg-amber hover:bg-amber/90 text-black' : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'} font-semibold rounded-lg py-3 transition-colors" ${c.payEnabled ? '' : 'disabled'}>${c.payEnabled ? 'Add to Agent Allowlist' : 'Blocked — cannot allowlist'}</button>
   `;
-  document.getElementById('allowlistBtn').addEventListener('click', () => {
-    showToast('Added to Hermes agent allowlist. This API is now trusted for agent spending.');
-  });
+  const allowlistBtn = document.getElementById('allowlistBtn');
+  if (c.payEnabled) {
+    allowlistBtn.addEventListener('click', () => {
+      showToast('Added to Hermes agent allowlist. This API is now trusted for agent spending.');
+    });
+  }
   document.getElementById('detailModal').classList.remove('hidden');
 }
 
