@@ -231,7 +231,7 @@
       </div>
       <div>
         <p class="font-mono text-cyan font-semibold mb-1">Stripe Skills for Hermes</p>
-        <p class="text-zinc-400">dual-rail payments: Stripe PaymentIntents (high-value escrow) or Blockrun x402 (agent-native micropayments). Real test-mode PaymentIntents with manual capture, or gasless EIP-3009 USDC settlement on Base Sepolia. The escrow gate blocks bad endpoints entirely, on either rail.</p>
+        <p class="text-zinc-400">dual-rail payments: Stripe PaymentIntents (high-value escrow) or Blockrun x402 (agent-native micropayments). Real test-mode PaymentIntents with manual capture, or gasless EIP-3009 USDC settlement on Base. The escrow gate blocks bad endpoints entirely, on either rail.</p>
       </div>
       <div>
         <p class="font-mono text-green-400 font-semibold mb-1">NVIDIA Nemotron 3 Ultra</p>
@@ -289,7 +289,7 @@ const PROBE_API   = '/api/probe/v1/probe';
 const ESCROW_API  = '/api/escrow/v1/escrow/validate';
 const ESCROW_EXECUTE_API = '/api/escrow/v1/escrow/execute';
 const STRIPE_DASHBOARD_URL = 'https://dashboard.stripe.com/test/payments';
-const BASESCAN_SEPOLIA_URL = 'https://sepolia.basescan.org';
+const BASESCAN_URL = 'https://basescan.org';
 const TRUST_THRESHOLD = 70;
 const STRIPE_PI_ID = 'pi_3Oxxxxx_test';
 const X402_TX_HASH = '0x7f8c9d2e1b4a6f5e3d2c1b0a9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e';
@@ -837,10 +837,10 @@ function renderSimStep() {
     const x402Lines = [
       { type: 'cmd', text: '$ beacon-pay --target integrate.api.nvidia.com \\' },
       { type: 'cmd', text: '             --amount 0.50 \\' },
-      { type: 'cmd', text: '             --token usdc-base-sepolia' },
+      { type: 'cmd', text: '             --token usdc-base' },
       { type: 'out', text: '[HANDSHAKE] x402 version 2.0 negotiated' },
       { type: 'out', text: '[SIGN]      EIP-3009 authorization: 0x71f4...a2c9' },
-      { type: 'out', text: '[RELAY]     Blockrun settling on Base Sepolia...' },
+      { type: 'out', text: '[RELAY]     Blockrun settling on Base...' },
       { type: 'good', text: `[CONFIRM]   Transaction: ${X402_TX_HASH.slice(0, 6)}...${X402_TX_HASH.slice(-6)}` },
     ];
     typeLines(termEl, simRail === 'stripe' ? stripeLines : x402Lines).then(() => {
@@ -857,11 +857,11 @@ function renderSimStep() {
         detailsEl.innerHTML = `
           <p>Handshake: <span class="text-cyan">x402 v2.0 negotiated</span></p>
           <p>Authorization: <span class="text-zinc-200">EIP-3009 (gasless signature)</span></p>
-          <p>Settlement: <span class="text-zinc-200">USDC on Base Sepolia</span> via Blockrun</p>
+          <p>Settlement: <span class="text-zinc-200">USDC on Base</span> via Blockrun</p>
           <p class="break-all">Transaction: <span class="text-amber">${X402_TX_HASH}</span></p>
         `;
-        linkEl.href = `${BASESCAN_SEPOLIA_URL}/tx/${X402_TX_HASH}`;
-        linkEl.textContent = 'View on sepolia.basescan.org';
+        linkEl.href = `${BASESCAN_URL}/tx/${X402_TX_HASH}`;
+        linkEl.textContent = 'View on basescan.org';
       }
       linkEl.classList.remove('hidden');
       nextBtn.classList.remove('hidden');
@@ -911,9 +911,9 @@ function renderSimStep() {
         <p class="mt-3"><a href="${STRIPE_DASHBOARD_URL}" target="_blank" rel="noopener" class="text-cyan hover:underline text-xs font-mono">View in Stripe Dashboard →</a></p>
       </div>` : `
       <div class="rounded-lg border border-cyan/30 bg-cyan/5 px-5 py-4 mb-6">
-        <p class="text-cyan font-mono text-sm mb-2">Blockrun settlement confirmed — USDC on Base Sepolia</p>
+        <p class="text-cyan font-mono text-sm mb-2">Blockrun settlement confirmed — USDC on Base</p>
         <p class="text-sm font-mono text-zinc-300 break-all">Transaction: <span class="text-zinc-200">${X402_TX_HASH}</span></p>
-        <p class="mt-3"><a href="${BASESCAN_SEPOLIA_URL}/tx/${X402_TX_HASH}" target="_blank" rel="noopener" class="text-cyan hover:underline text-xs font-mono">View on sepolia.basescan.org →</a></p>
+        <p class="mt-3"><a href="${BASESCAN_URL}/tx/${X402_TX_HASH}" target="_blank" rel="noopener" class="text-cyan hover:underline text-xs font-mono">View on basescan.org →</a></p>
       </div>`;
     content.innerHTML = `
       <h3 class="text-lg font-bold text-white mb-4">Receipt</h3>
@@ -944,7 +944,7 @@ function renderSimStep() {
 const seed_scores = SPONSOR_APIS.map(api => ({
   endpoint: api.endpoint,
   trust_score: api.score,
-  grade: api.score >= 90 ? 'A' : api.score >= 80 ? 'B' : api.score >= 70 ? 'C' : api.score >= 60 ? 'D' : 'F',
+  grade: api.score >= 95 ? 'A+' : api.score >= 90 ? 'A' : api.score >= 80 ? 'B' : api.score >= 70 ? 'C' : api.score >= 60 ? 'D' : 'F',
   accuracy: Math.round((api.breakdown[0].value / 35) * 100) / 100,
   uptime_pct: 99 + Math.random() * 0.9,
   latency_p99_ms: 120 + Math.floor(Math.random() * 60),
@@ -1245,7 +1245,7 @@ function populateSponsorUrls() {
 
 function simulateProbeResult(targetUrl) {
   const trust_score = Math.floor(35 + Math.random() * 60);
-  const grade = trust_score >= 90 ? 'A' : trust_score >= 80 ? 'B' : trust_score >= 70 ? 'C' : trust_score >= 60 ? 'D' : 'F';
+  const grade = trust_score >= 95 ? 'A+' : trust_score >= 90 ? 'A' : trust_score >= 80 ? 'B' : trust_score >= 70 ? 'C' : trust_score >= 60 ? 'D' : 'F';
   const now = new Date().toISOString();
   return {
     endpoint: targetUrl,

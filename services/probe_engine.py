@@ -291,6 +291,8 @@ def calculate_trust_score(accuracy: float, error_rate: float, error_occurred: bo
 
 
 def grade_for_score(trust_score: int) -> str:
+    if trust_score >= 95:
+        return "A+"
     if trust_score >= 90:
         return "A"
     if trust_score >= 80:
