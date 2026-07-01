@@ -384,17 +384,20 @@ const SPONSOR_APIS = [
     ],
   },
   {
-    id: 'hermes', name: 'Hermes Portal', category: 'Orchestration', filterCategory: 'Agent Infrastructure',
+    id: 'hermes', name: 'Hermes Portal', category: 'LLM', filterCategory: 'LLM',
     score: 94, evaluator: 'nemotron-3-ultra', lastProbedMinutes: 1,
-    endpoint: 'https://hermes-api.example.com/v1/tasks', shortEndpoint: 'hermes.mock/v1',
+    endpoint: 'https://inference-api.nousresearch.com/v1/chat/completions', shortEndpoint: 'portal.nousresearch.com',
     breakdown: breakdownFromScore(94, 30, 27, 20),
-    capabilities: ['Delegate agent workflows and task routing.'],
-    escrowText: 'Gate OPEN. Task delegation enabled.',
-    escrow: { perCall: '$20.00', hold: '30 minutes before auto-capture' },
+    capabilities: [
+      'Run chat/completions on Hermes-4.3-36B, Hermes-4-70B, and Hermes-4-405B (128k context), OpenAI-compatible.',
+      'Pay per request via x402 (Solana USDC) with no account or API key required.',
+    ],
+    escrowText: 'Gate OPEN. x402 pay-per-request enabled — no pre-purchased credits needed.',
+    escrow: { perCall: '$5.00 (token-metered via x402, bounded by max_tokens)', hold: 'Immediate — x402 settles per request, no escrow hold' },
     probes: [
-      { time: '1 min ago', endpoint: 'POST /v1/tasks', score: 94, status: 'PASS' },
-      { time: '20 min ago', endpoint: 'GET /v1/tasks/task_88', score: 93, status: 'PASS' },
-      { time: '3 hours ago', endpoint: 'POST /v1/tasks/delegate', score: 95, status: 'PASS' },
+      { time: '1 min ago', endpoint: 'POST /v1/chat/completions (402 → X-PAYMENT retry)', score: 94, status: 'PASS' },
+      { time: '20 min ago', endpoint: 'POST /v1/completions', score: 93, status: 'PASS' },
+      { time: '3 hours ago', endpoint: 'GET /api/openapi', score: 95, status: 'PASS' },
     ],
   },
   {
@@ -475,7 +478,7 @@ document.getElementById('runLiveSimBtn').addEventListener('click', () => setActi
 /* ---------------------------------------------------------------------- */
 /* TAB 1: Agent Directory                                                 */
 /* ---------------------------------------------------------------------- */
-const FILTERS = ['All', 'Payments', 'Compute', 'Agent Infrastructure', 'LLM'];
+const FILTERS = ['All', 'Payments', 'Compute', 'LLM'];
 let activeFilter = 'All';
 let activeSort = 'score_desc';
 
@@ -670,8 +673,8 @@ function typeLines(el, lines, speed = 14) {
 /* TAB 2: Simulate Purchase (5-step wizard)                               */
 /* ---------------------------------------------------------------------- */
 let simStep = 1;
+let simProbeResult = null; // populated by the real /v1/probe call made in step 2
 const SIM_STEPS = ['Agent Intent', 'Beacon Probe', 'Escrow Gate', 'Sandbox', 'Complete'];
-const SIM_SCORE = 96; // fixed demo score used for the Probe step threshold check
 
 function renderStepIndicator() {
   document.getElementById('stepLabel').innerHTML = `<span>Step ${simStep} of ${SIM_STEPS.length}</span><span class="text-zinc-300">${SIM_STEPS[simStep - 1]}</span>`;
@@ -713,11 +716,11 @@ function renderSimStep() {
   if (simStep === 1) {
     content.innerHTML = `
       <h3 class="text-lg font-bold text-white mb-1">Agent Intent</h3>
-      <p class="text-sm text-zinc-400 mb-5">Hermes-1 wants to buy A100 GPU time via NemoClaw.</p>
+      <p class="text-sm text-zinc-400 mb-5">Hermes-1 wants to provision NVIDIA GPU inference access before handing the job to NemoClaw.</p>
       <div class="space-y-2 text-sm text-zinc-300 mb-6 font-mono">
         <p>Agent ID: <span class="text-cyan">hermes-1</span></p>
-        <p>Target Service: <span class="text-zinc-200">NVIDIA NemoClaw</span></p>
-        <p>Action: <span class="text-zinc-200">Provision GPU instance (A100, 1hr)</span></p>
+        <p>Target Service: <span class="text-zinc-200">NVIDIA NIM inference gateway</span></p>
+        <p>Action: <span class="text-zinc-200">Verify trust, then provision GPU instance (A100, 1hr) via NemoClaw</span></p>
         <p>Estimated Cost: <span class="text-amber">$12.50</span></p>
       </div>
       <button id="simNext" class="bg-amber hover:bg-amber/90 text-black font-semibold rounded-lg px-6 py-3 transition-colors">Start Probe</button>
@@ -729,31 +732,60 @@ function renderSimStep() {
   if (simStep === 2) {
     content.innerHTML = `
       <h3 class="text-lg font-bold text-white mb-4">Beacon Trust Probe</h3>
+      <p class="text-xs font-mono text-zinc-500 mb-3">Live call — this actually hits Beacon's probe engine against a real endpoint, not a scripted result.</p>
       ${terminalBlock('simProbeTerminal')}
       <button id="simNext" disabled class="hidden mt-6 bg-amber hover:bg-amber/90 text-black font-semibold rounded-lg px-6 py-3 transition-colors disabled:opacity-40">Open Escrow Gate</button>
       <p id="simBlockedMsg" class="hidden mt-4 text-sm text-red-400 font-mono">Trust score too low. Agent blocked.</p>
     `;
-    const pass = SIM_SCORE >= TRUST_THRESHOLD;
-    const probeLines = [
-      { type: 'cmd', text: '$ beacon probe --target nemoclaw.mock/v1/provision \\' },
-      { type: 'cmd', text: '    --evaluator nemotron-3-ultra \\' },
-      { type: 'cmd', text: '    --schema "gpu_sandbox"' },
-      { type: 'out', text: '[200] GET nemoclaw.mock/v1/provision' },
-      { type: 'out', text: 'Latency: 124ms' },
-      { type: 'out', text: 'Schema: OpenAPI 3.0 valid' },
-      { type: 'out', text: 'Auth: Bearer required (OK - structured)' },
-      { type: 'out', text: 'Telemetry: OpenShell compliant' },
-      { type: 'out', text: 'Evaluating with Nemotron 3 Ultra...' },
-      { type: pass ? 'good' : 'bad', text: `Score: ${SIM_SCORE}/100` },
-      { type: pass ? 'good' : 'bad', text: pass ? `Result: PASS (>= ${TRUST_THRESHOLD})` : `Result: BLOCK (< ${TRUST_THRESHOLD})` },
-    ];
-    typeLines(document.getElementById('simProbeTerminal'), probeLines).then(() => {
+    const target = 'https://integrate.api.nvidia.com/v1/chat/completions';
+    const termEl = document.getElementById('simProbeTerminal');
+    typeLines(termEl, [
+      { type: 'cmd', text: `$ beacon probe --target ${target} \\` },
+      { type: 'cmd', text: '    --evaluator nemotron-3-ultra' },
+      { type: 'out', text: 'Probing live endpoint…' },
+    ]).then(async () => {
+      let result;
+      try {
+        const res = await fetch(PROBE_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            target_url: target,
+            task_description: 'NVIDIA NIM GPU inference gateway trust check ahead of NemoClaw provisioning',
+            payload: { model: 'meta/llama-3.1-8b-instruct', messages: [{ role: 'user', content: 'ping' }] },
+            ground_truth: '',
+            spend_amount_cents: 1,
+          }),
+        });
+        result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'probe failed');
+      } catch (e) {
+        await typeLines(termEl, [{ type: 'bad', text: `Probe engine unreachable: ${e.message}` }]);
+        document.getElementById('simBlockedMsg').textContent = 'Could not reach the probe engine. Try again in a moment.';
+        document.getElementById('simBlockedMsg').classList.remove('hidden');
+        return;
+      }
+
+      simProbeResult = result;
+      const c = classifyScore(result);
+      const pass = c.payEnabled;
+      const scoreLine = c.showScore ? `Score: ${result.trust_score}/100` : `Score withheld — ${c.badgeLabel}`;
+      await typeLines(termEl, [
+        { type: 'out', text: `[${result.http_status ?? 'n/a'}] POST ${hostnameOf(target)}` },
+        { type: 'out', text: `Latency: ${result.latency_p99_ms}ms` },
+        { type: 'out', text: `Evaluator: ${result.evaluator}` },
+        { type: 'out', text: 'Evaluating with Nemotron 3 Ultra…' },
+        { type: pass ? 'good' : 'bad', text: scoreLine },
+        { type: pass ? 'good' : 'bad', text: pass ? `Result: PASS (>= ${TRUST_THRESHOLD})` : `Result: BLOCK (< ${TRUST_THRESHOLD})` },
+      ]);
+
       const nextBtn = document.getElementById('simNext');
       if (pass) {
         nextBtn.classList.remove('hidden');
         nextBtn.disabled = false;
         nextBtn.addEventListener('click', () => { simStep = 3; renderSimStep(); });
       } else {
+        document.getElementById('simBlockedMsg').textContent = c.reason || 'Trust score too low. Agent blocked.';
         document.getElementById('simBlockedMsg').classList.remove('hidden');
       }
     });
@@ -764,7 +796,7 @@ function renderSimStep() {
     content.innerHTML = `
       <h3 class="text-lg font-bold text-white mb-4">Stripe Escrow Hold</h3>
       <div class="space-y-2 text-sm text-zinc-300 mb-6 font-mono">
-        <p class="text-green-400">Trust Score: ${SIM_SCORE} &ge; ${TRUST_THRESHOLD} (gate opens)</p>
+        <p class="text-green-400">Trust Score: ${simProbeResult.trust_score} &ge; ${TRUST_THRESHOLD} (gate opens)</p>
         <p>PaymentIntent created: <span class="text-amber">pi_3Oxyz...</span> (test mode)</p>
         <p>Amount: <span class="text-white">$12.50</span></p>
         <p>Capture Method: <span class="text-zinc-200">manual (escrow hold)</span></p>
@@ -818,7 +850,7 @@ function renderSimStep() {
           <p>Amount Held: <span class="text-zinc-200">$12.50</span></p>
           <p>Amount Captured: <span class="text-zinc-200">$12.50</span></p>
           <p>PaymentIntent: <span class="text-zinc-200">pi_3Oxyz...</span> (test mode)</p>
-          <p class="sm:col-span-2">Evaluator: <span class="text-green-400">nemotron-3-ultra</span> (score: ${SIM_SCORE})</p>
+          <p class="sm:col-span-2">Evaluator: <span class="text-green-400">${escapeHtml(simProbeResult.evaluator)}</span> (score: ${simProbeResult.trust_score})</p>
         </div>
       </div>
       <div class="rounded-lg border border-cyan/30 bg-cyan/5 px-5 py-4 mb-6">
@@ -1135,6 +1167,7 @@ const PROBE_SUGGESTED_URLS = [
   'https://api.github.com/zen',
   'https://httpbin.org/get',
   'https://jsonplaceholder.typicode.com/posts/1',
+  'https://hermes.beacons.fyi/mock/honeypot/v1/yield',
 ];
 
 function populateSponsorUrls() {
@@ -1231,7 +1264,7 @@ probeForm.addEventListener('submit', async (e) => {
     });
     if (!res.ok) throw new Error('probe failed');
     result = await res.json();
-    result.raw = result.raw || result;
+    result.raw = { ...result };
   } catch (e) {
     await new Promise(r => setTimeout(r, 900));
     result = simulateProbeResult(targetUrl);
