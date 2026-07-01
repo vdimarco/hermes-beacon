@@ -1264,7 +1264,7 @@ probeForm.addEventListener('submit', async (e) => {
     });
     if (!res.ok) throw new Error('probe failed');
     result = await res.json();
-    result.raw = result.raw || result;
+    result.raw = { ...result };
   } catch (e) {
     await new Promise(r => setTimeout(r, 900));
     result = simulateProbeResult(targetUrl);
