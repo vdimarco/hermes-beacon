@@ -62,6 +62,19 @@ on purpose — `dog.ceo` only supports GET, `reqres.in` requires an API
 key) so they're marked `synthetic: false` and appear on the scoreboard
 without the "sample data" badge, same as any other live probe.
 
+### Analytics (optional)
+
+All 4 backend services report key business events (probes, escrow
+decisions, attestations, disputes, honeypot detections, budget
+guardrail trips) to PostHog via a shared `posthog_client.py`, following
+the same fallback contract as `NOUS_API_KEY`/`STRIPE_SECRET_KEY` —
+if `POSTHOG_PROJECT_TOKEN` isn't set, every capture call is a no-op and
+nothing else changes. Set in `.env`:
+
+- `POSTHOG_PROJECT_TOKEN` — project API key from PostHog
+- `POSTHOG_HOST` — defaults to `https://us.i.posthog.com`
+- `POSTHOG_DISABLED` — set to `true` to force-disable capture even with a token set
+
 ## Deploying to Fly.io
 
 The app is already provisioned (`hermes-beacon`, region `iad`) with a

@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
+from posthog_client import posthog_client
 
 DB_PATH = config.PROBES_DB_PATH
 
@@ -83,7 +84,19 @@ def get_score(endpoint_id: str):
         row = fetch_latest_score(conn, endpoint_id)
         if row is None:
             raise HTTPException(status_code=404, detail=f"No score found for endpoint_id '{endpoint_id}'")
-        return row_to_score(row)
+        result = row_to_score(row)
+        if posthog_client:
+            posthog_client.capture(
+                endpoint_id,
+                "trust_score_queried",
+                properties={
+                    "endpoint_id": endpoint_id,
+                    "trust_score": result["trust_score"],
+                    "grade": result["grade"],
+                    "escrow_recommendation": result["escrow_recommendation"],
+                },
+            )
+        return result
 
 
 @app.get("/v1/scores")

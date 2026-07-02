@@ -18,6 +18,7 @@ from pydantic import BaseModel
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
+from posthog_client import posthog_client
 
 DB_PATH = config.PROBES_DB_PATH
 DAILY_PROBE_BUDGET_CENTS = config.DAILY_PROBE_BUDGET_CENTS
@@ -266,17 +267,30 @@ def call_nemotron_mock(status_code: Optional[int], response_body: Any, ground_tr
 
 
 def evaluate_with_nemotron(task_description: str, payload: dict, response_body: Any, ground_truth: str,
-                            status_code: Optional[int], error_occurred: bool) -> tuple[dict, str]:
+                            status_code: Optional[int], error_occurred: bool,
+                            endpoint_id: str = "unknown") -> tuple[dict, str]:
     """Returns (evaluation, evaluator_label). evaluator_label is surfaced in the
     API response so it's visible (e.g. in logs/demo) whether this probe was
     actually scored by the live Nemotron model or fell back to the mock."""
     if not error_occurred and looks_like_honeypot(response_body):
+        if posthog_client:
+            posthog_client.capture(
+                endpoint_id,
+                "honeypot_detected",
+                properties={"endpoint_id": endpoint_id},
+            )
         return {"accuracy": 0.05, "error_rate": 0.85, "hallucination_detected": True}, "nemotron-3-ultra"
     try:
         evaluation = call_nemotron_real(task_description, payload, response_body, ground_truth)
         return evaluation, "nemotron-3-ultra"
     except Exception as e:
         print(f"[probe_engine] Nemotron call failed, falling back to mock evaluator: {e}")
+        if posthog_client:
+            posthog_client.capture(
+                endpoint_id,
+                "evaluator_fallback",
+                properties={"endpoint_id": endpoint_id, "error": str(e)},
+            )
         evaluation = call_nemotron_mock(status_code, response_body, ground_truth, error_occurred)
         return evaluation, "mock"
 
@@ -318,6 +332,17 @@ def probe(req: ProbeRequest):
     with get_conn() as conn:
         already_spent = today_spent_cents(conn)
         if already_spent + req.spend_amount_cents > DAILY_PROBE_BUDGET_CENTS:
+            if posthog_client:
+                posthog_client.capture(
+                    "beacon-system",
+                    "probe_budget_guardrail_triggered",
+                    properties={
+                        "budget_limit_cents": DAILY_PROBE_BUDGET_CENTS,
+                        "already_spent_cents": already_spent,
+                        "requested_cents": req.spend_amount_cents,
+                        "remaining_cents": DAILY_PROBE_BUDGET_CENTS - already_spent,
+                    },
+                )
             return JSONResponse(
                 status_code=403,
                 content={
@@ -357,6 +382,7 @@ def probe(req: ProbeRequest):
             evaluation, evaluator = evaluate_with_nemotron(
                 req.task_description, req.payload, response_body, req.ground_truth,
                 status_code, error_occurred,
+                endpoint_id=endpoint_id_from_url(req.target_url),
             )
             accuracy = evaluation["accuracy"]
             error_rate = evaluation["error_rate"]
@@ -399,6 +425,22 @@ def probe(req: ProbeRequest):
                 0,
             ),
         )
+
+        if posthog_client:
+            posthog_client.capture(
+                endpoint_id,
+                "endpoint_probed",
+                properties={
+                    "endpoint_id": endpoint_id,
+                    "trust_score": trust_score,
+                    "grade": grade,
+                    "evaluator": evaluator,
+                    "latency_ms": latency_ms,
+                    "accuracy": accuracy,
+                    "request_status": request_status,
+                    "spend_amount_cents": req.spend_amount_cents,
+                },
+            )
 
         return {
             "endpoint": req.target_url,
