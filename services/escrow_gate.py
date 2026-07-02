@@ -23,6 +23,7 @@ from pydantic import BaseModel
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
+from posthog_client import posthog_client
 
 DB_PATH = config.ESCROW_DB_PATH
 LEDGER_API_URL = config.LEDGER_API_URL
@@ -199,6 +200,19 @@ def validate_escrow(req: ValidateRequest):
         )
         conn.commit()
 
+    if posthog_client:
+        posthog_client.capture(
+            req.endpoint_id,
+            "escrow_validated",
+            properties={
+                "endpoint_id": req.endpoint_id,
+                "decision": decision,
+                "trust_score": trust_score,
+                "payment_amount_cents": req.payment_amount_cents,
+                "stripe_backed": stripe_payment_intent_id is not None,
+            },
+        )
+
     return {
         "escrow_id": escrow_id,
         "can_pay": can_pay,
@@ -233,6 +247,18 @@ def execute_escrow(req: ExecuteRequest):
                     (captured.status, req.escrow_id),
                 )
                 conn.commit()
+            if posthog_client:
+                posthog_client.capture(
+                    row["endpoint_id"],
+                    "escrow_executed",
+                    properties={
+                        "endpoint_id": row["endpoint_id"],
+                        "escrow_id": req.escrow_id,
+                        "fee_cents": row["fee_cents"],
+                        "net_amount_cents": row["net_amount_cents"],
+                        "stripe_backed": True,
+                    },
+                )
             return {
                 "status": "released" if captured.status == "succeeded" else captured.status,
                 "fee_cents": row["fee_cents"],
@@ -244,6 +270,19 @@ def execute_escrow(req: ExecuteRequest):
             }
         except stripe.error.StripeError as e:
             raise HTTPException(status_code=502, detail=f"Stripe capture failed: {e}")
+
+    if posthog_client:
+        posthog_client.capture(
+            row["endpoint_id"],
+            "escrow_executed",
+            properties={
+                "endpoint_id": row["endpoint_id"],
+                "escrow_id": req.escrow_id,
+                "fee_cents": row["fee_cents"],
+                "net_amount_cents": row["net_amount_cents"],
+                "stripe_backed": False,
+            },
+        )
 
     return {
         "status": "released",

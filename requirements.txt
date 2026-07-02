@@ -4,3 +4,4 @@ httpx
 pydantic
 requests
 stripe
+posthog

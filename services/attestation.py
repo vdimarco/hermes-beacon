@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
+from posthog_client import posthog_client
 
 ATTESTATIONS_DB_PATH = config.ATTESTATIONS_DB_PATH
 DISPUTES_DB_PATH = config.DISPUTES_DB_PATH
@@ -117,6 +118,17 @@ def attest(req: AttestRequest):
             (req.endpoint_id, req.trust_score, req.validator_id, attestation, now),
         )
 
+    if posthog_client:
+        posthog_client.capture(
+            req.endpoint_id,
+            "attestation_issued",
+            properties={
+                "endpoint_id": req.endpoint_id,
+                "trust_score": req.trust_score,
+                "validator_id": req.validator_id,
+            },
+        )
+
     return {
         "endpoint_id": req.endpoint_id,
         "trust_score": req.trust_score,
@@ -136,7 +148,17 @@ def verify(attestation: str):
         ).fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail=f"No attestation found for '{attestation}'")
-        return row_to_attestation(row)
+        result = row_to_attestation(row)
+        if posthog_client:
+            posthog_client.capture(
+                result["endpoint_id"],
+                "attestation_verified",
+                properties={
+                    "endpoint_id": result["endpoint_id"],
+                    "trust_score": result["trust_score"],
+                },
+            )
+        return result
 
 
 @app.post("/v1/dispute")
@@ -151,6 +173,16 @@ def dispute(req: DisputeRequest):
             VALUES (?, ?, ?, ?)
             """,
             (dispute_id, req.endpoint_id, req.reason, now),
+        )
+
+    if posthog_client:
+        posthog_client.capture(
+            req.endpoint_id,
+            "dispute_filed",
+            properties={
+                "endpoint_id": req.endpoint_id,
+                "dispute_id": dispute_id,
+            },
         )
 
     return {"reprobe_scheduled": True, "dispute_id": dispute_id, "timestamp": now}
