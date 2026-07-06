@@ -59,6 +59,7 @@ def row_to_score(row: sqlite3.Row) -> dict:
         "escrow_recommendation": escrow_recommendation(row["trust_score"]),
         "evaluator": row["evaluator"] if "evaluator" in columns else None,
         "synthetic": bool(row["synthetic"]) if "synthetic" in columns else False,
+        "status": row["request_status"] if "request_status" in columns else None,
     }
 
 

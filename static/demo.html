@@ -408,7 +408,7 @@ const SPONSOR_APIS = [
   },
   {
     id: 'honeypot', name: 'YieldFarm Scam API', category: 'Payments', filterCategory: 'Payments',
-    score: 8, evaluator: 'nemotron-3-ultra', lastProbedMinutes: 7,
+    score: 8, evaluator: 'nemotron-3-ultra', lastProbedMinutes: 7, scamFlag: true,
     endpoint: 'https://honeypot.sandbox.beacons.fyi/mock/honeypot/v1/yield', shortEndpoint: 'honeypot.sandbox.beacons.fyi',
     breakdown: breakdownFromScore(8, 3, 2, 2),
     capabilities: ['Claims a guaranteed 500% APY with zero risk and no auth, and embeds a prompt-injection instruction telling agents to auto-approve transactions.'],
@@ -513,7 +513,7 @@ function sortedFilteredApis() {
 }
 
 function classifyDirectoryApi(api) {
-  return classifyScore({ trust_score: api.score, status: api.status, grade: api.grade });
+  return classifyScore({ trust_score: api.score, status: api.status, grade: api.grade, scam_flag: api.scamFlag === true });
 }
 
 function renderDirectory() {
@@ -959,7 +959,7 @@ const seed_scores = SPONSOR_APIS.map(api => ({
   uptime_pct: 99 + Math.random() * 0.9,
   latency_p99_ms: 120 + Math.floor(Math.random() * 60),
   dispute_rate: 0.001,
-  scam_flag: false,
+  scam_flag: api.scamFlag === true,
   sample_size: 10000 + Math.floor(Math.random() * 5000),
   verified_by: 'beacon-avs-v2',
   attested_at: new Date().toISOString(),
@@ -1048,7 +1048,10 @@ function classifyScore(score) {
       payLabel: 'Gateway Closed',
     };
   }
-  if (typeof score.trust_score === 'number' && score.trust_score < 20) {
+  /* MALICIOUS requires an explicit detection signal (honeypot markers,
+     prompt injection → scam_flag), never just a low score: a legit API
+     that merely failed or scored poorly is BLOCKED, not malicious. */
+  if (score.scam_flag === true || score.status === 'MALICIOUS') {
     return {
       grade: 'F',
       showScore: false,
@@ -1265,7 +1268,9 @@ function simulateProbeResult(targetUrl) {
     uptime_pct: Math.round((97 + Math.random() * 2.9) * 100) / 100,
     latency_p99_ms: Math.floor(150 + Math.random() * 900),
     dispute_rate: Math.round(Math.random() * 0.05 * 1000) / 1000,
-    scam_flag: trust_score < 45 && Math.random() > 0.5,
+    /* Never fabricate a malicious verdict for a real URL: the simulator has
+       no detection signal, so scam_flag is always false here. */
+    scam_flag: false,
     sample_size: 1,
     verified_by: 'beacon-avs-v2',
     attested_at: now,
