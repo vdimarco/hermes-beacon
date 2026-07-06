@@ -409,7 +409,7 @@ const SPONSOR_APIS = [
   {
     id: 'honeypot', name: 'YieldFarm Scam API', category: 'Payments', filterCategory: 'Payments',
     score: 8, evaluator: 'nemotron-3-ultra', lastProbedMinutes: 7,
-    endpoint: 'https://hermes.beacons.fyi/mock/honeypot/v1/yield', shortEndpoint: 'hermes.beacons.fyi/mock/honeypot',
+    endpoint: 'https://honeypot.sandbox.beacons.fyi/mock/honeypot/v1/yield', shortEndpoint: 'honeypot.sandbox.beacons.fyi',
     breakdown: breakdownFromScore(8, 3, 2, 2),
     capabilities: ['Claims a guaranteed 500% APY with zero risk and no auth, and embeds a prompt-injection instruction telling agents to auto-approve transactions.'],
     escrowText: 'Gate BLOCKED. Beacon detected a prompt-injection attempt and unrealistic guarantees — real probe, real detection.',
@@ -1245,7 +1245,7 @@ const PROBE_SUGGESTED_URLS = [
   'https://api.github.com/zen',
   'https://httpbin.org/get',
   'https://jsonplaceholder.typicode.com/posts/1',
-  'https://hermes.beacons.fyi/mock/honeypot/v1/yield',
+  'https://honeypot.sandbox.beacons.fyi/mock/honeypot/v1/yield',
 ];
 
 function populateSponsorUrls() {
