@@ -93,6 +93,23 @@ def init_db():
             # probe was ever run against the endpoint), 0 for rows written
             # by a live POST /v1/probe call below.
             conn.execute("ALTER TABLE scores ADD COLUMN synthetic INTEGER DEFAULT 0")
+        if "request_status" not in existing_cols:
+            # Persist the probe outcome ("ok" / "error" / "CRITICAL_FAILURE")
+            # so the ledger can distinguish "endpoint failed the probe" from
+            # "endpoint answered and scored low". Without it the frontend has
+            # only the numeric score and mislabels mere failures as malicious.
+            conn.execute("ALTER TABLE scores ADD COLUMN request_status TEXT")
+            # Backfill rows written before this column existed: error-path
+            # rows were probe failures, not low-scoring responses.
+            conn.execute(
+                "UPDATE scores SET request_status = 'error' WHERE evaluator = 'error-path'"
+            )
+            # scam_flag was hardcoded to 0 on insert until now, so honeypot
+            # detections were never persisted as scams. Backfill the known
+            # honeypot endpoint's rows.
+            conn.execute(
+                "UPDATE scores SET scam_flag = 1 WHERE endpoint LIKE '%/mock/honeypot/%'"
+            )
         # Backfill: rows seeded by scripts/seed_data.py before the synthetic
         # column existed default to 0 from the ALTER above (they pre-date the
         # init_databases.py "only seed if empty" guard, so seed_data.py never
@@ -395,6 +412,10 @@ def probe(req: ProbeRequest):
         now = datetime.now(timezone.utc).isoformat()
         uptime_pct = round(99.0 + random.uniform(0.0, 0.9), 2)
         attestation = build_attestation(endpoint_id, trust_score, now)
+        # Same check evaluate_with_nemotron() uses to short-circuit scoring:
+        # scam_flag records *detected malicious signals* (honeypot markers,
+        # prompt injection), never merely a low trust score.
+        scam_detected = not error_occurred and looks_like_honeypot(response_body)
 
         conn.execute(
             """
@@ -402,8 +423,8 @@ def probe(req: ProbeRequest):
                 endpoint, endpoint_id, trust_score, grade, accuracy, uptime_pct,
                 latency_p99_ms, dispute_rate, scam_flag, sample_size, verified_by,
                 attested_at, attestation, spend_amount_cents, created_at, evaluator,
-                synthetic
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                synthetic, request_status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 req.target_url,
@@ -414,7 +435,7 @@ def probe(req: ProbeRequest):
                 uptime_pct,
                 latency_ms,
                 0.0,
-                0,
+                1 if scam_detected else 0,
                 1,
                 VERIFIED_BY,
                 now,
@@ -423,6 +444,7 @@ def probe(req: ProbeRequest):
                 now,
                 evaluator,
                 0,
+                request_status,
             ),
         )
 
@@ -452,7 +474,7 @@ def probe(req: ProbeRequest):
             "uptime_pct": uptime_pct,
             "latency_p99_ms": latency_ms,
             "dispute_rate": 0.0,
-            "scam_flag": False,
+            "scam_flag": scam_detected,
             "sample_size": 1,
             "verified_by": VERIFIED_BY,
             "attested_at": now,
