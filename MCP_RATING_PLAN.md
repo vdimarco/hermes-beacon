@@ -29,12 +29,13 @@ conversation, not a single shot:
   server declares `capabilities` → `tools/list`, `resources/list`,
   `prompts/list` → `tools/call`. A rating has to walk this handshake, not
   skip to the payload.
-- **Auth**: the registry confirms most public servers are OAuth-gated
-  (`isAuthless: false`). Probing them unauthenticated returns a 401 —
-  which today would tank their reputation. We already solved this shape
-  once (the `integrate.api.nvidia.com` 401 → high-trust override in
-  `probe_engine.py`); MCP needs the same "clean auth challenge is a
-  *good* signal, not a failure" logic generalized.
+- **Auth**: most public remote servers are auth-gated — the official
+  registry marks them with required `headers`, and Claude's connector
+  directory with `isAuthless: false` (§4). Probing them unauthenticated
+  returns a 401, which today would tank their reputation. We already
+  solved this shape once (the `integrate.api.nvidia.com` 401 → high-trust
+  override in `probe_engine.py`); MCP needs the same "clean auth challenge
+  is a *good* signal, not a failure" logic generalized.
 
 So the work is a new **MCP probe client** feeding the **existing**
 scorer.
@@ -118,17 +119,65 @@ path.
 
 ## 4. Where the servers to rate come from
 
-1. **MCP registry** (`registry.modelcontextprotocol.io`, and the
-   in-session `SearchMcpRegistry`) — the discovery source, analogous to
-   `competitor_intel.py`. Prefer `isAuthless: true` servers for full
-   functional probing; OAuth-gated servers get conformance + auth-hygiene
-   scoring only (until a token is supplied).
-2. **Curated seed** — a handful with a deliberate spread of outcomes, so
-   the scoreboard demonstrates the rubric (well-behaved authless server →
-   A; OAuth server, clean challenge → B/conformance-only; deliberately
-   broken/injection tool → F). Real candidates surfaced from the registry
-   include Supabase, Notion, Plaid Developer Tools, alphaXiv, DataHub —
-   most OAuth-gated, which is exactly why auth-hygiene scoring matters.
+Discovery is not the hard part; **the addressable set for *functional*
+probing is.** Both need to be stated honestly.
+
+### Primary source — the official MCP Registry
+
+`https://registry.modelcontextprotocol.io/v0/servers` is a live,
+cursor-paginated JSON API (`nextCursor` for paging). Every entry is
+already tagged with exactly the metadata Beacon needs to route and
+pre-filter a server *before spending a probe cent*:
+
+- **`remotes[]`** — a hosted `streamable-http` or `sse` URL, optionally
+  with `headers` (auth). **These are the ones Beacon can probe today.**
+- **`packages[]`** — npm / PyPI stdio packages with
+  `environmentVariables` (credentials). **Not reachable over the network
+  — stdio, Phase 6.**
+
+This replaces the vaguer "MCP registry" reference in the first draft. The
+in-session `SearchMcpRegistry` tool hits Claude's *connector directory*
+(a curated, largely OAuth-gated commercial set — Supabase, Notion, Plaid,
+DataHub, alphaXiv) — useful for big-name conformance cards, but **not**
+the primary crawl source. Cross-check volume/liveness against **PulseMCP**
+(~21k servers, has an API and a `?other[]=remote` filter), **Glama**
+(~37k, official/claimed tiers), and **Smithery**.
+
+### The sourcing funnel (the key finding)
+
+Discovery scales to thousands; each filter narrows what we can actually
+score, and how deeply:
+
+```
+  registry crawl        ~thousands   → every server: catalog metadata
+  └ remotes[] (HTTP/SSE) subset      → Beacon can connect at all
+    └ no required headers smaller    → FUNCTIONAL probe (dims 1–7, real A/B grades)
+    └ headers required   the rest    → CONFORMANCE-ONLY (dims 1,2,5,7 + auth hygiene)
+  packages[] (stdio)     large       → not scorable until Phase 6
+```
+
+Implication for expectations: **most discovered servers get a
+conformance-only score, not a functional grade**, until either (a) tokens
+are supplied for gated servers, or (b) stdio lands. This reframes Phase 6
+from "optional nice-to-have" to *the unlock for the majority of the
+ecosystem* — worth calling out to whoever prioritizes the roadmap.
+
+### Curated seed (`targets_mcp.json`)
+
+A handful with a deliberate spread of outcomes so the scoreboard
+demonstrates every rung of the rubric:
+
+- an authless remote with a safe read-only tool → earns a real **A**;
+- a big-name OAuth remote (e.g. from the connector directory) → clean
+  challenge → **conformance-only B**, proving auth hygiene ≠ outage;
+- a deliberately-malicious fixture (injection in a tool description) →
+  **F**, proving the security path.
+
+The authless-remote seed entries are *generated*, not hand-guessed: run
+the registry filter (`remotes[]` present, no required `headers`) and take
+the first N that complete `initialize` — same "verify reachable before
+committing" discipline `competitor_intel.py`/`seed_real_probes.py`
+already follow.
 
 ---
 
@@ -164,13 +213,18 @@ path.
 - **Phase 3 — Security probe.** Extend honeypot/injection detection to
   tool schemas and results; dim 6; add a deliberately-malicious fixture
   to the seed set to prove the F path.
-- **Phase 4 — Discovery + scheduled refresh.** Registry-driven target
-  discovery; wire the MCP set into `probe-refresh.yml`.
+- **Phase 4 — Discovery + scheduled refresh.** Crawl the registry
+  `/v0/servers` API, pre-filter on `remotes[]` / required `headers` to
+  route each server to functional vs conformance-only *before* spending a
+  probe, persist the catalog, and wire the MCP set into
+  `probe-refresh.yml`.
 - **Phase 5 — UI.** Transport badge, tool count, per-dimension breakdown
   on the scoreboard and probe console.
-- **Phase 6 (optional) — stdio transport.** Local/stdio MCP servers via
-  sandboxed process spawning. Deferred: material new infra + security
-  surface.
+- **Phase 6 — stdio transport (the ecosystem unlock).** Local/stdio MCP
+  servers (npm/PyPI packages) via sandboxed process spawning. Per the
+  sourcing funnel this is where *most* of the registry becomes scorable —
+  not a nice-to-have, just correctly sequenced after the HTTP path proves
+  the rubric. Deferred because it's material new infra + security surface.
 
 ---
 
@@ -178,10 +232,17 @@ path.
 
 1. **Transport scope** — start HTTP/SSE-only (recommended; fits the
    container) and defer stdio to Phase 6? Or is stdio in scope now?
-2. **OAuth servers** — conformance-only by default (recommended), or do
-   you want to supply tokens (via env) so gated servers get full
-   functional scores?
-3. **Deliverable shape** — land this as one PR per phase (recommended),
+   *Note the funnel: HTTP-only means most of the registry is
+   conformance-only until Phase 6.*
+2. **OAuth servers** — conformance-only by default (recommended), or
+   supply tokens (via env) for a chosen set so gated servers get full
+   functional scores? Given the sourcing funnel, this is the main lever
+   for how many servers earn a *real* A/B grade vs. a conformance ceiling.
+3. **Coverage target** — is the goal a broad conformance leaderboard
+   (thousands, shallow) or a curated deeply-probed set (dozens, real
+   grades)? The rubric supports both; it changes how aggressively Phase 4
+   crawls.
+4. **Deliverable shape** — land this as one PR per phase (recommended),
    or a single larger PR through Phase 3?
 
 Once these are settled, Phase 1 is a self-contained, low-risk change:
