@@ -1132,7 +1132,7 @@ function actionButtonHTML(c) {
   const style = c.gateOpens
     ? 'bg-amber text-black hover:bg-amber/90'
     : 'border border-zinc-700 text-zinc-400 hover:text-zinc-100 hover:border-zinc-500';
-  return `<button class="${base} ${style}" title="Simulate the agent's paid call through Beacon's escrow gate">Simulate call</button>`;
+  return `<button class="${base} ${style}" title="Simulate the agent's payment to this API through Beacon's escrow gate">Simulate payment</button>`;
 }
 
 /* 'error-path' is an internal evaluator name; never surface it in the UI. */
