@@ -55,6 +55,13 @@ SCAM_RECENCY_FLOOR = 0.25
 GATE_THRESHOLD = 700
 RISKY_THRESHOLD = 600
 
+# Only the most recent N probes per endpoint feed the index. Recency decay
+# already makes older probes negligible, and this bounds both the query and
+# the aggregation as scheduled re-probes accumulate rows over time. Must be
+# applied identically wherever history is read so probe_engine and ledger
+# compute the same index.
+HISTORY_LIMIT = 400
+
 
 def grade_for_index(index: int) -> str:
     if index >= 900:

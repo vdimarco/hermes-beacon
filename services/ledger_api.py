@@ -78,15 +78,16 @@ def row_to_score(row: sqlite3.Row) -> dict:
 
 
 def fetch_endpoint_rows(conn: sqlite3.Connection, endpoint_id: str) -> list[sqlite3.Row]:
-    """All probe rows for one endpoint, newest first (the reputation index
-    aggregates the full history, not just the latest probe)."""
+    """The most recent probe rows for one endpoint, newest first (the
+    reputation index aggregates the history, capped at HISTORY_LIMIT)."""
     return conn.execute(
         """
         SELECT * FROM scores
         WHERE endpoint_id = ?
         ORDER BY created_at DESC, id DESC
+        LIMIT ?
         """,
-        (endpoint_id,),
+        (endpoint_id, reputation.HISTORY_LIMIT),
     ).fetchall()
 
 
@@ -123,7 +124,11 @@ def list_scores():
         ).fetchall()
     groups: dict[str, list[sqlite3.Row]] = {}
     for row in rows:
-        groups.setdefault(row["endpoint_id"], []).append(row)
+        # rows arrive newest-first; keep only the most recent HISTORY_LIMIT per
+        # endpoint so this matches fetch_endpoint_rows / probe_engine exactly.
+        bucket = groups.setdefault(row["endpoint_id"], [])
+        if len(bucket) < reputation.HISTORY_LIMIT:
+            bucket.append(row)
     results = [summarize_endpoint(endpoint_rows) for endpoint_rows in groups.values()]
     results.sort(key=lambda r: r["trust_score"], reverse=True)
     return results

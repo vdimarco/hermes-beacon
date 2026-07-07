@@ -1,0 +1,35 @@
+name: Refresh Probes
+
+# Keeps the reputation scoreboard fresh. The index decays stale probes toward
+# the neutral prior (see reputation.py), so without periodic re-probing, live
+# endpoints drift down to C/D over time. This wakes the Fly machine
+# (auto_start_machines) and re-probes a curated set through the real pipeline,
+# then the machine sleeps again.
+#
+# Only endpoints that legitimately score well are probed here: NVIDIA NIM
+# (401 -> high-trust override) and public echo/REST APIs. Auth-gated APIs like
+# Stripe/OpenAI are intentionally excluded — probing them unauthenticated would
+# 401 and tank their own reputation. They render as static sample cards and do
+# not decay.
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'   # every 6 hours
+  workflow_dispatch: {}      # allow manual "Run workflow" from the Actions tab
+
+concurrency: probe-refresh   # never overlap runs
+
+jobs:
+  refresh:
+    name: Re-probe live endpoints
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install httpx
+      - name: Probe production
+        env:
+          BASE_URL: https://hermes.beacons.fyi
+        run: python scripts/seed_real_probes.py
