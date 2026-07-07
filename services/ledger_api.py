@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
+import reputation
 from posthog_client import posthog_client
 
 DB_PATH = config.PROBES_DB_PATH
@@ -34,11 +35,24 @@ def get_conn():
 
 
 def escrow_recommendation(trust_score: int) -> str:
-    if trust_score >= 70:
-        return "PASS"
-    if trust_score >= 50:
-        return "HOLD"
-    return "BLOCK"
+    return reputation.escrow_recommendation(trust_score)
+
+
+def summarize_endpoint(rows: list[sqlite3.Row]) -> dict:
+    """Turn all of an endpoint's probe rows into one score object. The
+    reputation index/grade/scam verdict are aggregated over the whole history
+    (see reputation.compute_index); the newest row supplies display metadata
+    (endpoint URL, latency, uptime, evaluator, latest status)."""
+    latest = rows[0]  # rows arrive newest-first
+    rep = reputation.compute_index(rows)
+    result = row_to_score(latest)
+    result["trust_score"] = rep["index"]
+    result["grade"] = rep["grade"]
+    result["scam_flag"] = rep["scam"] or bool(latest["scam_flag"])
+    result["sample_size"] = rep["sample_calls"]
+    result["breakdown"] = rep["breakdown"]
+    result["escrow_recommendation"] = escrow_recommendation(rep["index"])
+    return result
 
 
 def row_to_score(row: sqlite3.Row) -> dict:
@@ -63,16 +77,17 @@ def row_to_score(row: sqlite3.Row) -> dict:
     }
 
 
-def fetch_latest_score(conn: sqlite3.Connection, endpoint_id: str) -> sqlite3.Row | None:
+def fetch_endpoint_rows(conn: sqlite3.Connection, endpoint_id: str) -> list[sqlite3.Row]:
+    """All probe rows for one endpoint, newest first (the reputation index
+    aggregates the full history, not just the latest probe)."""
     return conn.execute(
         """
         SELECT * FROM scores
         WHERE endpoint_id = ?
         ORDER BY created_at DESC, id DESC
-        LIMIT 1
         """,
         (endpoint_id,),
-    ).fetchone()
+    ).fetchall()
 
 
 class BatchRequest(BaseModel):
@@ -82,10 +97,10 @@ class BatchRequest(BaseModel):
 @app.get("/v1/score/{endpoint_id}")
 def get_score(endpoint_id: str):
     with get_conn() as conn:
-        row = fetch_latest_score(conn, endpoint_id)
-        if row is None:
+        rows = fetch_endpoint_rows(conn, endpoint_id)
+        if not rows:
             raise HTTPException(status_code=404, detail=f"No score found for endpoint_id '{endpoint_id}'")
-        result = row_to_score(row)
+        result = summarize_endpoint(rows)
         if posthog_client:
             posthog_client.capture(
                 endpoint_id,
@@ -104,18 +119,14 @@ def get_score(endpoint_id: str):
 def list_scores():
     with get_conn() as conn:
         rows = conn.execute(
-            """
-            SELECT s.* FROM scores s
-            INNER JOIN (
-                SELECT endpoint_id, MAX(created_at) AS max_created_at
-                FROM scores
-                GROUP BY endpoint_id
-            ) latest
-            ON s.endpoint_id = latest.endpoint_id AND s.created_at = latest.max_created_at
-            ORDER BY s.trust_score DESC
-            """
+            "SELECT * FROM scores ORDER BY endpoint_id, created_at DESC, id DESC"
         ).fetchall()
-        return [row_to_score(row) for row in rows]
+    groups: dict[str, list[sqlite3.Row]] = {}
+    for row in rows:
+        groups.setdefault(row["endpoint_id"], []).append(row)
+    results = [summarize_endpoint(endpoint_rows) for endpoint_rows in groups.values()]
+    results.sort(key=lambda r: r["trust_score"], reverse=True)
+    return results
 
 
 @app.post("/v1/score/batch")
@@ -123,7 +134,7 @@ def batch_scores(req: BatchRequest):
     with get_conn() as conn:
         results = []
         for endpoint_id in req.endpoint_ids:
-            row = fetch_latest_score(conn, endpoint_id)
-            if row is not None:
-                results.append(row_to_score(row))
+            rows = fetch_endpoint_rows(conn, endpoint_id)
+            if rows:
+                results.append(summarize_endpoint(rows))
         return results

@@ -27,7 +27,7 @@ from posthog_client import posthog_client
 
 DB_PATH = config.ESCROW_DB_PATH
 LEDGER_API_URL = config.LEDGER_API_URL
-TRUST_THRESHOLD = 70
+TRUST_THRESHOLD = 700  # reputation index (0–1000); gate opens at/above this
 ESCROW_FEE_RATE = 0.005
 
 # Stripe's built-in test-mode payment method — confirms a PaymentIntent
