@@ -18,6 +18,7 @@ from pydantic import BaseModel
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
+import reputation
 from posthog_client import posthog_client
 
 DB_PATH = config.PROBES_DB_PATH
@@ -457,14 +458,27 @@ def probe(req: ProbeRequest):
             ),
         )
 
+        # trust_score/grade above are this single probe's *quality* (0–100),
+        # which is what the row stores. The endpoint's reported score is the
+        # reputation index aggregated over its whole probe history, including
+        # the row just inserted (visible on this connection pre-commit).
+        history = conn.execute(
+            "SELECT * FROM scores WHERE endpoint_id = ? ORDER BY created_at DESC, id DESC",
+            (endpoint_id,),
+        ).fetchall()
+        rep = reputation.compute_index(history)
+        reputation_index = rep["index"]
+        reputation_grade = rep["grade"]
+
         if posthog_client:
             posthog_client.capture(
                 endpoint_id,
                 "endpoint_probed",
                 properties={
                     "endpoint_id": endpoint_id,
-                    "trust_score": trust_score,
-                    "grade": grade,
+                    "trust_score": reputation_index,
+                    "grade": reputation_grade,
+                    "probe_quality": trust_score,
                     "evaluator": evaluator,
                     "latency_ms": latency_ms,
                     "accuracy": accuracy,
@@ -475,16 +489,18 @@ def probe(req: ProbeRequest):
 
         return {
             "endpoint": req.target_url,
-            "trust_score": trust_score,
-            "grade": grade,
+            "trust_score": reputation_index,
+            "grade": reputation_grade,
+            "probe_quality": trust_score,
+            "breakdown": rep["breakdown"],
             "status": request_status,
             "http_status": status_code,
             "accuracy": accuracy,
             "uptime_pct": uptime_pct,
             "latency_p99_ms": latency_ms,
             "dispute_rate": 0.0,
-            "scam_flag": scam_detected,
-            "sample_size": 1,
+            "scam_flag": rep["scam"] or scam_detected,
+            "sample_size": rep["sample_calls"],
             "verified_by": VERIFIED_BY,
             "attested_at": now,
             "attestation": attestation,

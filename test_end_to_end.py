@@ -90,7 +90,7 @@ def main():
         escrow_ok = False
         escrow_body = {}
 
-    expected_can_pay = score_body.get("trust_score", 0) >= 70
+    expected_can_pay = score_body.get("trust_score", 0) >= 700
     check(
         "/v1/escrow/validate can_pay reflects trust_score",
         escrow_ok and escrow_body.get("can_pay") == expected_can_pay,

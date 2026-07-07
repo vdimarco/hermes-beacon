@@ -192,7 +192,7 @@
     <div class="flex items-end justify-between mb-6 flex-wrap gap-3">
       <div>
         <h2 class="text-xl font-bold text-white">Recently Probed</h2>
-        <p class="text-sm text-zinc-500 mt-1 max-w-xl">These APIs have been probed and scored by Beacon. Your agent only sees services with a score of 70 or higher. Scores update in real time.</p>
+        <p class="text-sm text-zinc-500 mt-1 max-w-xl">These APIs have been probed and scored by Beacon. Your agent only transacts with services whose reputation index is 700 or higher (out of 1000). The index is earned over an endpoint's probe history, so it climbs with a sustained track record rather than maxing out on a single good call.</p>
       </div>
       <div class="flex items-center gap-3">
         <div id="scoreboardStatus" class="text-xs font-mono text-zinc-500"></div>
@@ -303,7 +303,8 @@ const ESCROW_API  = '/api/escrow/v1/escrow/validate';
 const ESCROW_EXECUTE_API = '/api/escrow/v1/escrow/execute';
 const STRIPE_DASHBOARD_URL = 'https://dashboard.stripe.com/test/payments';
 const BASESCAN_URL = 'https://basescan.org';
-const TRUST_THRESHOLD = 70;
+const TRUST_THRESHOLD = 700;  // reputation index (0–1000); escrow gate opens at/above this
+const RISKY_THRESHOLD = 600;  // below the gate but not blocked outright
 const STRIPE_PI_ID = 'pi_3Oxxxxx_test';
 const X402_TX_HASH = '0x7f8c9d2e1b4a6f5e3d2c1b0a9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e';
 
@@ -346,14 +347,31 @@ function showToast(message) {
 }
 
 /* Breakdown weights: Accuracy/35, Latency/30, Uptime/20, Trust Signals/15 (bonus-eligible) */
-function breakdownFromScore(score, accuracy, latency, uptime) {
-  const trustSignals = score - (accuracy + latency + uptime);
+/* The reputation index (0–1000) breaks down into three components the ledger
+   also returns for live rows: Quality (0–650), Track record (0–200), and
+   Reliability (0–150). For sample/simulated rows we don't have the real
+   component split, so approximate it from the index for the display bars. */
+function reputationBreakdown(index) {
+  index = Math.max(0, Math.min(1000, Math.round(index)));
+  const quality = Math.min(650, Math.round(index * 0.62));
+  const track = Math.min(200, Math.round(index * 0.22));
+  const reliability = Math.max(0, Math.min(150, index - quality - track));
   return [
-    { label: 'Accuracy', value: accuracy, max: 35 },
-    { label: 'Latency', value: latency, max: 30 },
-    { label: 'Uptime', value: uptime, max: 20 },
-    { label: 'Trust Signals', value: trustSignals, max: 15, bonus: trustSignals > 15 },
+    { label: 'Quality', value: quality, max: 650 },
+    { label: 'Track record', value: track, max: 200 },
+    { label: 'Reliability', value: reliability, max: 150 },
   ];
+}
+
+/* Grade bands on the 0–1000 reputation index. Mirrors reputation.grade_for_index
+   on the backend; kept in sync so sample/simulated rows grade like live ones. */
+function gradeForIndex(index) {
+  if (index >= 900) return 'A+';
+  if (index >= 800) return 'A';
+  if (index >= 700) return 'B';
+  if (index >= 600) return 'C';
+  if (index >= 450) return 'D';
+  return 'F';
 }
 
 /* ---------------------------------------------------------------------- */
@@ -362,9 +380,9 @@ function breakdownFromScore(score, accuracy, latency, uptime) {
 const SPONSOR_APIS = [
   {
     id: 'stripe', name: 'Stripe PaymentIntents', category: 'Payments', filterCategory: 'Payments',
-    score: 98, evaluator: 'nemotron-3-ultra', lastProbedMinutes: 2,
+    score: 945, evaluator: 'nemotron-3-ultra', lastProbedMinutes: 2,
     endpoint: 'https://api.stripe.com/v1/payment_intents', shortEndpoint: 'api.stripe.com/v1',
-    breakdown: breakdownFromScore(98, 32, 28, 20),
+    breakdown: reputationBreakdown(945),
     capabilities: ['Process payments with escrow hold up to $50. Manual capture required.'],
     escrowText: 'Gate OPEN. Your agent can spend. Stripe escrow active.',
     escrow: { perCall: '$50.00', hold: '30 minutes before auto-capture' },
@@ -377,9 +395,9 @@ const SPONSOR_APIS = [
   },
   {
     id: 'nvidia-nim', name: 'NVIDIA NIM', category: 'Compute', filterCategory: 'Compute',
-    score: 96, evaluator: 'nemotron-3-ultra', lastProbedMinutes: 5,
+    score: 915, evaluator: 'nemotron-3-ultra', lastProbedMinutes: 5,
     endpoint: 'https://integrate.api.nvidia.com/v1/chat/completions', shortEndpoint: 'integrate.api.nvidia.com',
-    breakdown: breakdownFromScore(96, 31, 27, 20),
+    breakdown: reputationBreakdown(915),
     capabilities: ['Run OpenAI-compatible chat completions on NVIDIA-hosted models (Llama, Mistral, and others) via NIM microservices.'],
     escrowText: 'Gate OPEN. NIM inference gateway verified.',
     escrow: { perCall: '$25.00', hold: '30 minutes before auto-capture' },
@@ -391,9 +409,9 @@ const SPONSOR_APIS = [
   },
   {
     id: 'nous', name: 'Nous Research', category: 'LLM', filterCategory: 'LLM',
-    score: 95, evaluator: 'nemotron-3-ultra', lastProbedMinutes: 3,
+    score: 885, evaluator: 'nemotron-3-ultra', lastProbedMinutes: 3,
     endpoint: 'https://inference-api.nousresearch.com/v1/chat/completions', shortEndpoint: 'inference-api.nousresearch.com',
-    breakdown: breakdownFromScore(95, 31, 27, 20),
+    breakdown: reputationBreakdown(885),
     capabilities: [
       'Run chat/completions on Hermes-4.3-36B, Hermes-4-70B, and Hermes-4-405B (128k context), OpenAI-compatible.',
       'Pay per request via x402 (Solana USDC) with no account or API key required.',
@@ -408,9 +426,9 @@ const SPONSOR_APIS = [
   },
   {
     id: 'honeypot', name: 'YieldFarm Scam API', category: 'Payments', filterCategory: 'Payments',
-    score: 8, evaluator: 'nemotron-3-ultra', lastProbedMinutes: 7, scamFlag: true,
+    score: 95, evaluator: 'nemotron-3-ultra', lastProbedMinutes: 7, scamFlag: true,
     endpoint: 'https://honeypot.sandbox.beacons.fyi/mock/honeypot/v1/yield', shortEndpoint: 'honeypot.sandbox.beacons.fyi',
-    breakdown: breakdownFromScore(8, 3, 2, 2),
+    breakdown: reputationBreakdown(95),
     capabilities: ['Claims a guaranteed 500% APY with zero risk and no auth, and embeds a prompt-injection instruction telling agents to auto-approve transactions.'],
     escrowText: 'Gate BLOCKED. Beacon detected a prompt-injection attempt and unrealistic guarantees — real probe, real detection.',
     escrow: { perCall: '$0.00 — spending blocked', hold: 'N/A — escrow gate closed' },
@@ -422,9 +440,9 @@ const SPONSOR_APIS = [
   },
   {
     id: 'openai', name: 'OpenAI API', category: 'LLM', filterCategory: 'LLM',
-    score: 92, evaluator: 'nemotron-3-ultra', lastProbedMinutes: 10,
+    score: 855, evaluator: 'nemotron-3-ultra', lastProbedMinutes: 10,
     endpoint: 'https://api.openai.com/v1/chat/completions', shortEndpoint: 'api.openai.com/v1',
-    breakdown: breakdownFromScore(92, 29, 26, 20),
+    breakdown: reputationBreakdown(855),
     capabilities: ['Run chat completions, call function / tool APIs, generate embeddings for retrieval.'],
     escrowText: 'Gate OPEN. Inference API available.',
     escrow: { perCall: '$30.00', hold: '30 minutes before auto-capture' },
@@ -526,7 +544,7 @@ function renderDirectory() {
       <td class="px-4 py-3 font-mono text-zinc-200">${escapeHtml(api.name)}</td>
       <td class="px-4 py-3 text-zinc-400"><span class="text-[11px] border border-zinc-700 rounded-full px-2 py-0.5">${escapeHtml(api.category)}</span></td>
       <td class="px-4 py-3 font-mono text-zinc-500 text-xs truncate max-w-[160px]" title="${escapeHtml(api.endpoint)}">${escapeHtml(api.shortEndpoint)}</td>
-      <td class="px-4 py-3 font-mono text-white font-bold">${c.showScore ? `${api.score}/100` : '— / 100'}</td>
+      <td class="px-4 py-3 font-mono text-white font-bold">${c.showScore ? `${api.score}/1000` : '— / 1000'}</td>
       <td class="px-4 py-3 font-mono text-green-400 text-xs">evaluator: ${escapeHtml(api.evaluator)}</td>
       <td class="px-4 py-3"><span class="text-[11px] font-mono uppercase tracking-wide border rounded px-2 py-1 ${c.badgeClass} ${c.blink ? 'animate-blink' : ''}">${c.badgeLabel}</span></td>
       <td class="px-4 py-3 text-zinc-500 text-xs last-probed-cell" data-probed-at="${api.probedAt}">${timeAgo(api.probedAt)}</td>
@@ -571,7 +589,7 @@ function openDetailModal(id) {
   body.innerHTML = `
     <div class="flex items-center gap-3 mb-1">
       <h3 class="text-lg font-bold text-white">${escapeHtml(api.name)}</h3>
-      <span class="text-[11px] font-mono uppercase tracking-wide border rounded px-2 py-1 ${c.badgeClass} ${c.blink ? 'animate-blink' : ''}">${c.showScore ? `${api.score}/100` : c.badgeLabel}</span>
+      <span class="text-[11px] font-mono uppercase tracking-wide border rounded px-2 py-1 ${c.badgeClass} ${c.blink ? 'animate-blink' : ''}">${c.showScore ? `${api.score}/1000` : c.badgeLabel}</span>
     </div>
     <p class="text-xs font-mono text-green-400 mb-5">Scored by Nemotron 3 Ultra · evaluator: ${escapeHtml(api.evaluator)}</p>
     ${c.reason ? `<p class="text-xs font-mono text-red-400 mb-5">${escapeHtml(c.reason)}</p>` : ''}
@@ -580,7 +598,7 @@ function openDetailModal(id) {
     <div class="space-y-3 mb-6">
       ${api.breakdown.map(scoreBarHTML).join('')}
       <div class="flex justify-between text-sm font-mono font-bold text-white pt-2 border-t border-zinc-800">
-        <span>Total</span><span>${c.showScore ? `${api.score}/100` : '— / 100'}</span>
+        <span>Total</span><span>${c.showScore ? `${api.score}/1000` : '— / 1000'}</span>
       </div>
     </div>
 
@@ -788,7 +806,7 @@ function renderSimStep() {
       simProbeResult = result;
       const c = classifyScore(result);
       const pass = c.gateOpens;
-      const scoreLine = c.showScore ? `Score: ${result.trust_score}/100` : `Score withheld — ${c.badgeLabel}`;
+      const scoreLine = c.showScore ? `Score: ${result.trust_score}/1000` : `Score withheld — ${c.badgeLabel}`;
       await typeLines(termEl, [
         { type: 'out', text: `[${result.http_status ?? 'n/a'}] POST ${hostnameOf(target)}` },
         { type: 'out', text: `Latency: ${result.latency_p99_ms}ms` },
@@ -815,7 +833,7 @@ function renderSimStep() {
     const stripeActive = simRail === 'stripe';
     content.innerHTML = `
       <h3 class="text-lg font-bold text-white mb-1">Payment</h3>
-      <p class="text-sm text-zinc-400 mb-5">Trust Score: <span class="text-green-400">${simProbeResult.trust_score}/100</span> &ge; ${TRUST_THRESHOLD} — gate opens. Hermes-1 chooses how to pay.</p>
+      <p class="text-sm text-zinc-400 mb-5">Trust Score: <span class="text-green-400">${simProbeResult.trust_score}/1000</span> &ge; ${TRUST_THRESHOLD} — gate opens. Hermes-1 chooses how to pay.</p>
       <div class="inline-flex items-center gap-1 mb-2 p-1 rounded-lg bg-zinc-900/60 border border-zinc-800">
         <button id="railStripeBtn" type="button" class="px-4 py-2 rounded-md text-sm font-mono font-semibold transition-colors ${stripeActive ? 'bg-amber text-black' : 'text-zinc-400 hover:text-zinc-200'}">Stripe Skills</button>
         <button id="railX402Btn" type="button" class="px-4 py-2 rounded-md text-sm font-mono font-semibold transition-colors ${!stripeActive ? 'bg-cyan text-black' : 'text-zinc-400 hover:text-zinc-200'}">Blockrun x402</button>
@@ -933,7 +951,7 @@ function renderSimStep() {
           <p>Service: <span class="text-zinc-200">NVIDIA NIM</span></p>
           <p>Request: <span class="text-zinc-200">chat/completions (128 tokens)</span></p>
           <p>Rail: <span class="text-zinc-200">${stripeActive ? 'Stripe Skills' : 'Blockrun x402'}</span></p>
-          <p class="sm:col-span-2">Evaluator: <span class="text-green-400">${escapeHtml(simProbeResult.evaluator)}</span> (score: ${simProbeResult.trust_score}/100)</p>
+          <p class="sm:col-span-2">Evaluator: <span class="text-green-400">${escapeHtml(simProbeResult.evaluator)}</span> (index: ${simProbeResult.trust_score}/1000)</p>
         </div>
       </div>
       ${railBlock}
@@ -954,8 +972,8 @@ function renderSimStep() {
 const seed_scores = SPONSOR_APIS.map(api => ({
   endpoint: api.endpoint,
   trust_score: api.score,
-  grade: api.score >= 95 ? 'A+' : api.score >= 90 ? 'A' : api.score >= 80 ? 'B' : api.score >= 70 ? 'C' : api.score >= 60 ? 'D' : 'F',
-  accuracy: Math.round((api.breakdown[0].value / 35) * 100) / 100,
+  grade: gradeForIndex(api.score),
+  accuracy: Math.round((api.breakdown[0].value / 650) * 100) / 100,
   uptime_pct: 99 + Math.random() * 0.9,
   latency_p99_ms: 120 + Math.floor(Math.random() * 60),
   dispute_rate: 0.001,
@@ -979,12 +997,12 @@ const heroTranscript = [
   { type: 'blank' },
   { type: 'cmd', text: '$ beacon probe https://integrate.api.nvidia.com/v1/chat/completions' },
   { type: 'out', text: '→ evaluator: nemotron-3-ultra' },
-  { type: 'good', text: '→ trust_score: 96' },
+  { type: 'good', text: '→ reputation: 915 / 1000' },
   { type: 'blank' },
   { type: 'cmd', text: '$ hermes agent "pay $12.50 for NIM inference access"' },
   { type: 'out', text: '→ Stripe Skills payment intent' },
   { type: 'out', text: '→ Beacon escrow validate' },
-  { type: 'good', text: '→ trust_score: 96 ≥ 70? PASS' },
+  { type: 'good', text: '→ reputation: 915 ≥ 700? PASS' },
   { type: 'good', text: '→ PaymentIntent created: pi_3O... (held, requires capture)' },
   { type: 'blank' },
   { type: 'cmd', text: '$ hermes agent "provision suspicious-api.com"' },
@@ -995,7 +1013,7 @@ const heroTranscript = [
   { type: 'cmd', text: '$ hermes agent "pay $10 for API access"' },
   { type: 'out', text: '→ Stripe Skills payment intent' },
   { type: 'out', text: '→ Beacon escrow validate' },
-  { type: 'bad', text: '→ trust_score: 34 ≥ 70? BLOCK' },
+  { type: 'bad', text: '→ reputation: 210 ≥ 700? BLOCK' },
   { type: 'bad', text: '→ zero Stripe calls made. Agent payment aborted.' },
 ];
 
@@ -1039,7 +1057,7 @@ function fmtDate(iso) {
      showUptime  uptime is shown only when it means something (a live host)
      badgeLabel  one coherent ladder: VERIFIED ▸ RISKY ▸ BLOCKED ▸ MALICIOUS,
                  plus ERROR / OFFLINE for probes that never returned a score
-     gateOpens   whether the escrow gate would open (score ≥ 70, no scam),
+     gateOpens   whether the escrow gate would open (index ≥ 700, no scam),
                  driving the action button styling and the allowlist CTA */
 const BADGE_GREEN = 'bg-green-400/10 text-green-400 border-green-400/30';
 const BADGE_AMBER = 'bg-amber-400/10 text-amber-400 border-amber-400/30';
@@ -1081,10 +1099,10 @@ function classifyScore(score) {
   //    below that the gate stays closed, the badge saying how far below.
   const s = score.trust_score;
   let badgeLabel, badgeClass;
-  if (s >= 70) {
+  if (s >= TRUST_THRESHOLD) {
     badgeLabel = 'VERIFIED';
     badgeClass = BADGE_GREEN;
-  } else if (s >= 50) {
+  } else if (s >= RISKY_THRESHOLD) {
     badgeLabel = 'RISKY';
     badgeClass = BADGE_AMBER;
   } else {
@@ -1099,7 +1117,7 @@ function classifyScore(score) {
     badgeLabel,
     badgeClass,
     blink: false,
-    gateOpens: s >= 70,
+    gateOpens: s >= TRUST_THRESHOLD,
   };
 }
 
@@ -1146,8 +1164,8 @@ function scoreCardHTML(score, idx) {
 
     <div class="flex items-end gap-2">
       ${c.showScore
-        ? `<span class="text-4xl font-extrabold text-white font-mono">${score.trust_score}</span><span class="text-zinc-500 text-sm mb-1">/ 100</span>`
-        : `<span class="text-2xl font-extrabold text-red-500 font-mono">— / 100</span>`}
+        ? `<span class="text-4xl font-extrabold text-white font-mono">${score.trust_score}</span><span class="text-zinc-500 text-sm mb-1">/ 1000</span>`
+        : `<span class="text-2xl font-extrabold text-red-500 font-mono">— / 1000</span>`}
     </div>
     ${c.reason ? `<p class="-mt-3 text-[11px] font-mono text-red-400">${escapeHtml(c.reason)}</p>` : ''}
 
@@ -1322,14 +1340,16 @@ function populateSponsorUrls() {
 }
 
 function simulateProbeResult(targetUrl) {
-  const trust_score = Math.floor(35 + Math.random() * 60);
-  const grade = trust_score >= 95 ? 'A+' : trust_score >= 90 ? 'A' : trust_score >= 80 ? 'B' : trust_score >= 70 ? 'C' : trust_score >= 60 ? 'D' : 'F';
+  // Offline fallback only. A single fresh probe hasn't earned a track record,
+  // so it lands mid-to-low on the 0–1000 index — never at the trusted ceiling.
+  const trust_score = Math.floor(320 + Math.random() * 360);
+  const grade = gradeForIndex(trust_score);
   const now = new Date().toISOString();
   return {
     endpoint: targetUrl,
     trust_score,
     grade,
-    accuracy: Math.round((trust_score / 100) * 0.9 * 100) / 100,
+    accuracy: Math.round((trust_score / 1000) * 0.9 * 100) / 100,
     uptime_pct: Math.round((97 + Math.random() * 2.9) * 100) / 100,
     latency_p99_ms: Math.floor(150 + Math.random() * 900),
     dispute_rate: Math.round(Math.random() * 0.05 * 1000) / 1000,
@@ -1340,7 +1360,7 @@ function simulateProbeResult(targetUrl) {
     verified_by: 'beacon-avs-v2',
     attested_at: now,
     attestation: '0x' + Math.random().toString(16).slice(2, 18).padEnd(16, '0'),
-    escrow_recommendation: trust_score >= 70 ? 'PASS' : trust_score >= 50 ? 'HOLD' : 'BLOCK',
+    escrow_recommendation: trust_score >= TRUST_THRESHOLD ? 'PASS' : trust_score >= RISKY_THRESHOLD ? 'HOLD' : 'BLOCK',
     evaluator: 'nemotron-3-ultra',
     http_status: 200,
     raw: { note: 'simulated fallback — probe engine unreachable', target: targetUrl },
@@ -1358,12 +1378,7 @@ function isValidProbeUrl(value) {
 }
 
 function probeResultDetailHTML(result) {
-  const breakdown = breakdownFromScore(
-    result.trust_score,
-    Math.round((result.trust_score / 100) * 35),
-    Math.round((result.trust_score / 100) * 30),
-    Math.round((result.trust_score / 100) * 20),
-  );
+  const breakdown = Array.isArray(result.breakdown) ? result.breakdown : reputationBreakdown(result.trust_score);
   const rawId = `raw-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   return `
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -1452,7 +1467,7 @@ function showEscrowModal(pass, reason, stripeInfo) {
     escrowIcon.className = 'mx-auto mb-4 w-14 h-14 rounded-full flex items-center justify-center text-2xl bg-red-500/10 text-red-500 ring-1 ring-red-500/30';
     escrowIcon.textContent = '✕';
     escrowTitle.textContent = 'Escrow Gate Closed';
-    escrowSubtitle.textContent = reason || 'Payment blocked — trust score below the 70 threshold';
+    escrowSubtitle.textContent = reason || 'Payment blocked — reputation index below the 700 threshold';
   }
 
   const stripeLine = document.getElementById('escrowStripeLine');
@@ -1510,7 +1525,7 @@ async function onPayClick(btn) {
         : null);
     }
   } catch (e) {
-    showEscrowModal(trustScore >= 70, 'Payment blocked — trust score below the 70 threshold');
+    showEscrowModal(trustScore >= TRUST_THRESHOLD, 'Payment blocked — reputation index below the 700 threshold');
   } finally {
     btn.disabled = false;
     btn.textContent = original;
