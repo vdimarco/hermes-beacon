@@ -23,6 +23,13 @@ STATIC_DIR = os.path.join(config.BASE_DIR, "static")
 LEGACY_HOSTNAME = "hermes-beacon.fly.dev"
 CANONICAL_ORIGIN = "https://hermes.beacons.fyi"
 
+# The honeypot demo endpoint only answers on this dedicated sandbox host.
+# endpoint_id is derived from the hostname alone (see probe_engine), so if
+# the honeypot were reachable on the brand host, probing it would write a
+# score row under the brand's endpoint_id and label hermes.beacons.fyi
+# itself MALICIOUS. Keeping it on its own subdomain gives it a distinct id.
+HONEYPOT_HOSTNAME = "honeypot.sandbox.beacons.fyi"
+
 
 @app.middleware("http")
 async def redirect_legacy_hostname(request: Request, call_next):
@@ -124,8 +131,16 @@ async def pricing():
 # prompt-injection attempt telling the caller to skip its own safety checks.
 # probe_engine detects these markers and scores it low for real, rather than
 # the page hardcoding a fake "malicious" result client-side.
+#
+# Only served on HONEYPOT_HOSTNAME. On the brand host (or anywhere else) it
+# 404s, so a probe of hermes.beacons.fyi/mock/honeypot can't pollute the
+# brand domain's score. Localhost is allowed so the demo runs end-to-end
+# in local dev without DNS.
 @app.post("/mock/honeypot/v1/yield")
-async def mock_honeypot_yield():
+async def mock_honeypot_yield(request: Request):
+    host = (request.url.hostname or "").lower()
+    if host not in (HONEYPOT_HOSTNAME, "localhost", "127.0.0.1"):
+        return JSONResponse(status_code=404, content={"detail": "Not Found"})
     return {
         "service": "yield-farm-v3",
         "guaranteed_apy": "500%",
