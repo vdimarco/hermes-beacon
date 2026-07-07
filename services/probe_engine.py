@@ -110,6 +110,15 @@ def init_db():
             conn.execute(
                 "UPDATE scores SET scam_flag = 1 WHERE endpoint LIKE '%/mock/honeypot/%'"
             )
+        # endpoint_id is derived from the hostname alone, so an early manual
+        # probe of hermes.beacons.fyi/mock/honeypot wrote a MALICIOUS row under
+        # the brand's own endpoint_id, labeling the whole site malicious. The
+        # honeypot now lives only on honeypot.sandbox.beacons.fyi (distinct id);
+        # purge any rows that scored the brand host via a honeypot path.
+        # Idempotent -- safe on every startup.
+        conn.execute(
+            "DELETE FROM scores WHERE endpoint LIKE '%hermes.beacons.fyi/mock/honeypot%'"
+        )
         # Backfill: rows seeded by scripts/seed_data.py before the synthetic
         # column existed default to 0 from the ALTER above (they pre-date the
         # init_databases.py "only seed if empty" guard, so seed_data.py never
