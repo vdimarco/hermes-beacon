@@ -248,3 +248,64 @@ already follow.
 Once these are settled, Phase 1 is a self-contained, low-risk change:
 new `mcp_probe.py`, a `probe_type` branch in the engine, additive DB
 columns, and a seed script — everything else in Beacon stays untouched.
+
+---
+
+## 8. Related work & network positioning (forward-looking, not in scope above)
+
+The longer-term ambition behind this plan is a **shared, multi-host trust
+network** — anyone runs the code, anyone contributes probes/attestations,
+and the reputation mapping covers not just MCP servers and APIs but
+**agents** too. That's a materially bigger project than Phases 1–6, so
+it's captured here as positioning, not committed work.
+
+**This is not a green field.** By mid-2026 several projects occupy
+adjacent ground:
+
+- **[ERC-8004 "Trustless Agents"](https://github.com/sudeepb02/awesome-erc8004)**
+  — an Ethereum standard with three open, permissionless registries:
+  Identity, Reputation, and **Validation** (third-party attestations of
+  performance). Beacon's probe→attestation plane is structurally a
+  Validation Registry operator.
+- **[MIT Project NANDA](https://thenewstack.io/how-mits-project-nanda-aims-to-decentralize-ai-agents/)**
+  — federated agent registries with no central directory, built on MCP +
+  A2A, with its own Reputation Registry (public feedback) and Validation
+  Registry (independent attestations). The "anyone hosts a node" property
+  this plan wants, already specified for agents.
+- **[OpenRank / EigenTrust](https://docs.openrank.com/openrank/ranking-and-reputation)**
+  — verifiable reputation *compute* (EigenTrust graph algorithm, Sybil
+  detection, EigenLayer-secured) as shared infrastructure, run over
+  ERC-8004 data. This is the decentralized analog of `reputation.py`:
+  anyone can recompute the index over open data and verify it
+  cryptographically, rather than trusting one host's SQLite.
+- **MCP-specific competitors**: Dominion Observatory (behavioral trust
+  scores over 14,820+ MCP servers), AgentGraph (security-scan trust
+  scores + W3C DIDs), cheqd Trust Registries (verifiable-credential
+  model). Worth a direct look before Phase 1, since they score the exact
+  same target class this plan does.
+- **Payments/reputation coupling**: x402 (HTTP-402 micropayments) + AP2 +
+  ERC-8004 are converging into a stack where verifiable payment history
+  *is* a reputation signal — the same idea as Beacon's escrow gate
+  consuming the reputation index, generalized to a network.
+
+**Where Beacon is actually differentiated:** most of the above are either
+agent-only (ERC-8004, NANDA, OpenRank) or MCP-only (Dominion, AgentGraph),
+and most reputation registries are *passive* — they store feedback/
+attestations that someone else generated. Beacon's edge is (a) **active
+probing** — it generates ground truth by actually calling the target
+rather than waiting for others to submit feedback, and (b) **one index
+across MCPs, APIs, and (eventually) agents**, where most of the field
+splits those into separate systems.
+
+**Recommended framing, not a new phase:** don't build a new decentralized
+substrate from scratch. Position Beacon as a **validation-layer node**
+that *emits* attestations in an ERC-8004/EAS-compatible shape, so any
+future multi-host network (NANDA-style federation, or a bespoke one) can
+consume Beacon's probes without Beacon having to solve consensus, Sybil
+resistance, or cross-host scoring agreement itself — those are exactly
+the hard problems OpenRank/EigenTrust exist to solve, and re-deriving
+them in-house would be the highest-risk part of "make this a true
+network." A rated-agents dimension, if pursued, is its own follow-on plan
+(agents need a different probe entirely — evaluating multi-turn/tool-use
+behavior, not a single request/response), not an extension of the MCP
+probe described above.
