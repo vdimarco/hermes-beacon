@@ -84,7 +84,7 @@
       <div class="flex items-center text-zinc-600">→</div>
       <div class="flex-1 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-3 text-center">
         <p class="font-mono text-xs sm:text-sm font-semibold text-white">Scored API</p>
-        <p class="text-[10px] sm:text-[11px] text-zinc-500 mt-1">Nemotron 3 trust score</p>
+        <p class="text-[10px] sm:text-[11px] text-zinc-500 mt-1">Nemotron-scored reputation</p>
       </div>
       <div class="flex items-center text-zinc-600">→</div>
       <div class="flex-1 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-3 text-center">
@@ -100,6 +100,41 @@
   </div>
 </section>
 
+<!-- ============ REPUTATION INDEX EXPLAINER ============ -->
+<section class="max-w-6xl mx-auto px-6 pb-8">
+  <div class="rounded-xl border border-zinc-800 bg-zinc-900/30 p-6 sm:p-8">
+    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-1">
+      <h2 class="text-lg font-bold text-white">The reputation index — earned, not faked</h2>
+      <span class="font-mono text-xs text-zinc-500">0 – 1000 · gate opens at 700</span>
+    </div>
+    <p class="text-sm text-zinc-500 mb-6 max-w-3xl">Every API gets a reputation index built from its real probe history — a credit score, not a one-off test result. A single perfect response won't buy an unknown endpoint your agent's trust; the top is reached only with a sustained track record, and the score decays when an endpoint slips. Your agent transacts only above 700.</p>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 text-sm">
+      <div class="rounded-lg border border-zinc-800 bg-[#0d0d0f] p-4">
+        <div class="flex items-baseline justify-between mb-1">
+          <p class="font-mono text-amber font-semibold">Quality</p>
+          <span class="font-mono text-[11px] text-zinc-600">up to 650</span>
+        </div>
+        <p class="text-zinc-400">How correctly the endpoint answers, judged live by Nemotron 3 Ultra — recency-weighted and held near neutral until there's enough evidence to trust it.</p>
+      </div>
+      <div class="rounded-lg border border-zinc-800 bg-[#0d0d0f] p-4">
+        <div class="flex items-baseline justify-between mb-1">
+          <p class="font-mono text-cyan font-semibold">Track record</p>
+          <span class="font-mono text-[11px] text-zinc-600">up to 200</span>
+        </div>
+        <p class="text-zinc-400">Proven call volume over time. Sustained clean history is what lifts a score toward the ceiling — this is why the index can't be maxed on one good call.</p>
+      </div>
+      <div class="rounded-lg border border-zinc-800 bg-[#0d0d0f] p-4">
+        <div class="flex items-baseline justify-between mb-1">
+          <p class="font-mono text-green-400 font-semibold">Reliability</p>
+          <span class="font-mono text-[11px] text-zinc-600">up to 150</span>
+        </div>
+        <p class="text-zinc-400">Uptime, error rate, response consistency, and dispute rate — how dependable the endpoint is across all the times your agents have hit it.</p>
+      </div>
+    </div>
+    <p class="text-xs font-mono text-zinc-500 mt-6 max-w-3xl leading-relaxed">Grades A+ → F and the 700 escrow threshold are derived from the live index, so a score and its grade can never disagree. A detected scam or prompt-injection signal hard-caps the index regardless of volume. Beacon re-probes tracked endpoints on a schedule, so the number reflects how an API behaves <span class="text-zinc-300">now</span> — not how it looked the day it was added.</p>
+  </div>
+</section>
+
 <!-- ============ TABS ============ -->
 <div class="max-w-6xl mx-auto px-6">
   <div class="flex items-center gap-6 border-b border-zinc-800 font-mono text-sm">
@@ -112,12 +147,12 @@
 <!-- ============ TAB 1: AGENT DIRECTORY ============ -->
 <section id="tab-directory" class="tab-panel max-w-6xl mx-auto px-6 py-10">
   <h2 class="text-xl font-bold text-white">Agent API Directory</h2>
-  <p class="text-sm text-zinc-500 mt-1 max-w-2xl">Pre-scored services that have passed Beacon's live probe. These are safe for your agent to call.</p>
+  <p class="text-sm text-zinc-500 mt-1 max-w-2xl">Scored by Beacon's live probe and ranked by reputation. Your agent only spends on services above the 700 trust threshold — lower-scoring and flagged endpoints are shown too, so you can see exactly what the escrow gate blocks.</p>
 
   <div class="mt-6 flex flex-wrap items-center justify-between gap-3">
     <div id="filterPills" class="flex flex-wrap gap-2 text-xs font-mono"></div>
     <select id="sortSelect" class="bg-[#0d0d0f] border border-zinc-700 text-zinc-300 text-xs font-mono rounded-lg px-3 py-2 outline-none focus:border-amber">
-      <option value="score_desc">Sort by: Trust Score (High to Low)</option>
+      <option value="score_desc">Sort by: Reputation (High to Low)</option>
       <option value="last_probed">Sort by: Last Probed</option>
       <option value="category">Sort by: Category</option>
     </select>
@@ -130,7 +165,7 @@
           <th class="text-left px-4 py-3">Service</th>
           <th class="text-left px-4 py-3">Category</th>
           <th class="text-left px-4 py-3">Endpoint</th>
-          <th class="text-left px-4 py-3">Trust Score</th>
+          <th class="text-left px-4 py-3">Reputation</th>
           <th class="text-left px-4 py-3">Evaluator</th>
           <th class="text-left px-4 py-3">Status</th>
           <th class="text-left px-4 py-3">Last Probed</th>
@@ -822,7 +857,7 @@ function renderSimStep() {
         nextBtn.disabled = false;
         nextBtn.addEventListener('click', () => { simStep = 3; renderSimStep(); });
       } else {
-        document.getElementById('simBlockedMsg').textContent = c.reason || 'Trust score too low. Agent blocked.';
+        document.getElementById('simBlockedMsg').textContent = c.reason || 'Reputation below the 700 threshold. Agent blocked.';
         document.getElementById('simBlockedMsg').classList.remove('hidden');
       }
     });
@@ -833,7 +868,7 @@ function renderSimStep() {
     const stripeActive = simRail === 'stripe';
     content.innerHTML = `
       <h3 class="text-lg font-bold text-white mb-1">Payment</h3>
-      <p class="text-sm text-zinc-400 mb-5">Trust Score: <span class="text-green-400">${simProbeResult.trust_score}/1000</span> &ge; ${TRUST_THRESHOLD} — gate opens. Hermes-1 chooses how to pay.</p>
+      <p class="text-sm text-zinc-400 mb-5">Reputation: <span class="text-green-400">${simProbeResult.trust_score}/1000</span> &ge; ${TRUST_THRESHOLD} — gate opens. Hermes-1 chooses how to pay.</p>
       <div class="inline-flex items-center gap-1 mb-2 p-1 rounded-lg bg-zinc-900/60 border border-zinc-800">
         <button id="railStripeBtn" type="button" class="px-4 py-2 rounded-md text-sm font-mono font-semibold transition-colors ${stripeActive ? 'bg-amber text-black' : 'text-zinc-400 hover:text-zinc-200'}">Stripe Skills</button>
         <button id="railX402Btn" type="button" class="px-4 py-2 rounded-md text-sm font-mono font-semibold transition-colors ${!stripeActive ? 'bg-cyan text-black' : 'text-zinc-400 hover:text-zinc-200'}">Blockrun x402</button>
@@ -1063,7 +1098,7 @@ const BADGE_GREEN = 'bg-green-400/10 text-green-400 border-green-400/30';
 const BADGE_AMBER = 'bg-amber-400/10 text-amber-400 border-amber-400/30';
 
 function classifyScore(score) {
-  // 1. No successful response: there is no trust score to show, and uptime is
+  // 1. No successful response: there is no reputation to show, and uptime is
   //    meaningless. A dead host (OFFLINE) and one that answered with an error
   //    (ERROR) are distinct, but both close the gate.
   if (CRITICAL_STATUSES.includes(score.status)) {
@@ -1095,8 +1130,9 @@ function classifyScore(score) {
       gateOpens: false,
     };
   }
-  // 3. Scored on the 0–100 trust scale. The agent transacts only at ≥70;
-  //    below that the gate stays closed, the badge saying how far below.
+  // 3. Scored on the 0–1000 reputation scale. The agent transacts only at
+  //    ≥700 (TRUST_THRESHOLD); below that the gate stays closed, the badge
+  //    saying how far below.
   const s = score.trust_score;
   let badgeLabel, badgeClass;
   if (s >= TRUST_THRESHOLD) {
