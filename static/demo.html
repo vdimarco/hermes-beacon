@@ -591,7 +591,7 @@ function openDetailModal(id) {
 
     <p class="text-xs font-mono uppercase tracking-wide text-zinc-500 mb-2">Escrow Status</p>
     <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 px-4 py-3 text-sm text-zinc-300 space-y-1 mb-6 font-mono">
-      <p class="${c.payEnabled ? 'text-green-400' : 'text-red-400'}">${escapeHtml(api.escrowText)}</p>
+      <p class="${c.gateOpens ? 'text-green-400' : 'text-red-400'}">${escapeHtml(api.escrowText)}</p>
       <p>Your agent can spend up to ${escapeHtml(api.escrow.perCall)} per API call</p>
       <p>Funds held for ${escapeHtml(api.escrow.hold)}</p>
       ${api.stripeLink ? `<p class="pt-1"><a href="${STRIPE_DASHBOARD_URL}" target="_blank" rel="noopener" class="text-cyan hover:underline">View in Stripe Dashboard →</a></p>` : ''}
@@ -612,10 +612,10 @@ function openDetailModal(id) {
       </table>
     </div>
 
-    <button id="allowlistBtn" class="w-full ${c.payEnabled ? 'bg-amber hover:bg-amber/90 text-black' : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'} font-semibold rounded-lg py-3 transition-colors" ${c.payEnabled ? '' : 'disabled'}>${c.payEnabled ? 'Add to Agent Allowlist' : 'Blocked — cannot allowlist'}</button>
+    <button id="allowlistBtn" class="w-full ${c.gateOpens ? 'bg-amber hover:bg-amber/90 text-black' : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'} font-semibold rounded-lg py-3 transition-colors" ${c.gateOpens ? '' : 'disabled'}>${c.gateOpens ? 'Add to Agent Allowlist' : 'Blocked — cannot allowlist'}</button>
   `;
   const allowlistBtn = document.getElementById('allowlistBtn');
-  if (c.payEnabled) {
+  if (c.gateOpens) {
     allowlistBtn.addEventListener('click', () => {
       showToast('Added to Hermes agent allowlist. This API is now trusted for agent spending.');
     });
@@ -787,7 +787,7 @@ function renderSimStep() {
 
       simProbeResult = result;
       const c = classifyScore(result);
-      const pass = c.payEnabled;
+      const pass = c.gateOpens;
       const scoreLine = c.showScore ? `Score: ${result.trust_score}/100` : `Score withheld — ${c.badgeLabel}`;
       await typeLines(termEl, [
         { type: 'out', text: `[${result.http_status ?? 'n/a'}] POST ${hostnameOf(target)}` },
@@ -1039,7 +1039,8 @@ function fmtDate(iso) {
      showUptime  uptime is shown only when it means something (a live host)
      badgeLabel  one coherent ladder: VERIFIED ▸ RISKY ▸ BLOCKED ▸ MALICIOUS,
                  plus ERROR / OFFLINE for probes that never returned a score
-     payLabel    'Pay $50' when transactable, otherwise a single 'Blocked' */
+     gateOpens   whether the escrow gate would open (score ≥ 70, no scam),
+                 driving the action button styling and the allowlist CTA */
 const BADGE_GREEN = 'bg-green-400/10 text-green-400 border-green-400/30';
 const BADGE_AMBER = 'bg-amber-400/10 text-amber-400 border-amber-400/30';
 
@@ -1057,8 +1058,7 @@ function classifyScore(score) {
       badgeLabel: offline ? 'OFFLINE' : 'ERROR',
       badgeClass: RED_BADGE_CLASS,
       blink: false,
-      payEnabled: false,
-      payLabel: 'Blocked',
+      gateOpens: false,
     };
   }
   // 2. Malicious signal detected (honeypot markers / prompt injection). The
@@ -1074,8 +1074,7 @@ function classifyScore(score) {
       badgeLabel: 'MALICIOUS',
       badgeClass: RED_BADGE_CLASS,
       blink: true,
-      payEnabled: false,
-      payLabel: 'Blocked',
+      gateOpens: false,
     };
   }
   // 3. Scored on the 0–100 trust scale. The agent transacts only at ≥70;
@@ -1100,9 +1099,22 @@ function classifyScore(score) {
     badgeLabel,
     badgeClass,
     blink: false,
-    payEnabled: s >= 70,
-    payLabel: s >= 70 ? 'Pay $50' : 'Blocked',
+    gateOpens: s >= 70,
   };
+}
+
+/* The per-row action always does the same thing: run this API through the
+   escrow gate as the agent would before spending. The verdict differs — the
+   gate opens and settles for a trusted API, or blocks an untrusted one — so
+   the label stays constant and the styling signals the likely outcome. A
+   trusted row is a filled CTA (a real payment settles); everything else is a
+   quiet outline whose click demonstrates the gate refusing to pay. */
+function actionButtonHTML(c) {
+  const base = 'pay-btn inline-flex items-center justify-center gap-1.5 text-xs font-semibold rounded-lg px-3 py-1.5 transition-colors whitespace-nowrap';
+  const style = c.gateOpens
+    ? 'bg-amber text-black hover:bg-amber/90'
+    : 'border border-zinc-700 text-zinc-400 hover:text-zinc-100 hover:border-zinc-500';
+  return `<button class="${base} ${style}" title="Simulate the agent's paid call through Beacon's escrow gate">Simulate call</button>`;
 }
 
 /* 'error-path' is an internal evaluator name; never surface it in the UI. */
@@ -1150,11 +1162,11 @@ function scoreCardHTML(score, idx) {
       <div class="col-span-2">evaluator <span class="${score.evaluator === 'nemotron-3-ultra' ? 'text-green-400' : 'text-zinc-500'}">${escapeHtml(evaluatorLabel(score.evaluator))}</span></div>
     </div>
 
-    ${c.payEnabled ? '<p class="text-[10px] font-mono text-cyan/80">Hermes agent → Stripe Skills</p>' : ''}
+    ${c.gateOpens ? '<p class="text-[10px] font-mono text-cyan/80">Hermes agent → escrow gate → Stripe</p>' : ''}
 
     <div class="flex items-center justify-between gap-2 pt-2 border-t border-zinc-800">
       <span class="text-[11px] font-mono uppercase tracking-wide border rounded px-2 py-1 ${c.badgeClass} ${c.blink ? 'animate-blink' : ''}" title="Escrow status">${c.badgeLabel}</span>
-      <button class="pay-btn inline-flex items-center gap-1.5 bg-zinc-800 hover:bg-amber hover:text-black text-zinc-200 text-xs font-semibold rounded-lg px-3 py-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-zinc-800 disabled:hover:text-zinc-200" ${c.payEnabled ? '' : 'disabled'}>${c.payLabel}</button>
+      ${actionButtonHTML(c)}
     </div>
   </div>`;
 }
@@ -1184,7 +1196,7 @@ function scoreListRowHTML(score, idx) {
       <span class="inline-block min-w-[74px] text-[10px] font-mono uppercase tracking-wide border rounded px-1.5 py-1 ${c.badgeClass} ${c.blink ? 'animate-blink' : ''}" title="Escrow status">${c.badgeLabel}</span>
     </td>
     <td class="pl-2 pr-4 py-2.5 align-middle text-right">
-      <button class="pay-btn inline-flex items-center justify-center gap-1.5 bg-zinc-800 hover:bg-amber hover:text-black text-zinc-200 text-xs font-semibold rounded-lg px-3 py-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-zinc-800 disabled:hover:text-zinc-200" ${c.payEnabled ? '' : 'disabled'}>${c.payLabel}</button>
+      ${actionButtonHTML(c)}
     </td>
   </tr>`;
 }
@@ -1434,13 +1446,13 @@ function showEscrowModal(pass, reason, stripeInfo) {
   if (pass) {
     escrowIcon.className = 'mx-auto mb-4 w-14 h-14 rounded-full flex items-center justify-center text-2xl bg-green-400/10 text-green-400 ring-1 ring-green-400/30';
     escrowIcon.textContent = '✓';
-    escrowTitle.textContent = 'Payment Released';
-    escrowSubtitle.textContent = 'Released. Beacon fee: $0.25';
+    escrowTitle.textContent = 'Escrow Gate Opened';
+    escrowSubtitle.textContent = "Agent's payment released to the API · Beacon fee $0.25";
   } else {
     escrowIcon.className = 'mx-auto mb-4 w-14 h-14 rounded-full flex items-center justify-center text-2xl bg-red-500/10 text-red-500 ring-1 ring-red-500/30';
     escrowIcon.textContent = '✕';
-    escrowTitle.textContent = 'Payment Blocked';
-    escrowSubtitle.textContent = reason || 'Blocked: trust_score too low';
+    escrowTitle.textContent = 'Escrow Gate Closed';
+    escrowSubtitle.textContent = reason || 'Payment blocked — trust score below the 70 threshold';
   }
 
   const stripeLine = document.getElementById('escrowStripeLine');
@@ -1498,7 +1510,7 @@ async function onPayClick(btn) {
         : null);
     }
   } catch (e) {
-    showEscrowModal(trustScore >= 70, 'Blocked: trust_score too low');
+    showEscrowModal(trustScore >= 70, 'Payment blocked — trust score below the 70 threshold');
   } finally {
     btn.disabled = false;
     btn.textContent = original;
