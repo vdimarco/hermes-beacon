@@ -463,8 +463,8 @@ def probe(req: ProbeRequest):
         # reputation index aggregated over its whole probe history, including
         # the row just inserted (visible on this connection pre-commit).
         history = conn.execute(
-            "SELECT * FROM scores WHERE endpoint_id = ? ORDER BY created_at DESC, id DESC",
-            (endpoint_id,),
+            "SELECT * FROM scores WHERE endpoint_id = ? ORDER BY created_at DESC, id DESC LIMIT ?",
+            (endpoint_id, reputation.HISTORY_LIMIT),
         ).fetchall()
         rep = reputation.compute_index(history)
         reputation_index = rep["index"]

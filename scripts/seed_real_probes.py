@@ -35,6 +35,16 @@ PROBE_URL = f"{BASE_URL}/api/probe/v1/probe"
 
 TARGETS = [
     {
+        # Answers unauthenticated calls with a clean 401 (a valid auth
+        # challenge, not a broken endpoint); probe_engine's NVIDIA NIM override
+        # scores that as high-trust, so re-probing keeps this flagship warm.
+        "target_url": "https://integrate.api.nvidia.com/v1/chat/completions",
+        "task_description": "Serve OpenAI-compatible chat completions via NVIDIA NIM",
+        "payload": {"model": "meta/llama-3.1-8b-instruct", "messages": [{"role": "user", "content": "ping"}]},
+        "ground_truth": "a chat completion response",
+        "spend_amount_cents": 3,
+    },
+    {
         "target_url": "https://postman-echo.com/post",
         "task_description": "Echo test payload back",
         "payload": {"hello": "beacon"},
