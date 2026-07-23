@@ -1,0 +1,3 @@
+# Repository settings
+# This file is used by GitHub to update repository metadata
+description: "Trust scores for the agentic web—probe APIs, score reliability, gate payments on verification results. Four FastAPI services + escrow, runs locally or on Fly.io."
